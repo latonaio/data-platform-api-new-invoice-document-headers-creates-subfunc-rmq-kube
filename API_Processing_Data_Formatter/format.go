@@ -30,6 +30,8 @@ func (psdc *SDC) ConvertToProcessType() *ProcessType {
 	processType := ProcessType{
 		BulkProcess:       data.BulkProcess,
 		IndividualProcess: data.IndividualProcess,
+		ArraySpec:         data.ArraySpec,
+		RangeSpec:         data.RangeSpec,
 	}
 
 	return &processType
@@ -1039,21 +1041,19 @@ func (psdc *SDC) ConvertToCalculateInvoiceDocument(invoiceDocumentLatestNumber *
 // 	return &totalNetAmountQueryGets, nil
 // }
 
-// func (psdc *SDC) ConvertToTotalNetAmount(
-// 	inputTotalNetAmount *float32,
-// ) *TotalNetAmount {
-// 	pm := &requests.TotalNetAmount{}
+func (psdc *SDC) ConvertToTotalNetAmount(totalNetAmount *float32) *TotalNetAmount {
+	pm := &requests.TotalNetAmount{}
 
-// 	pm.TotalNetAmount = inputTotalNetAmount
+	pm.TotalNetAmount = totalNetAmount
 
-// 	data := pm
-// 	totalNetAmount := TotalNetAmount{
-// 		InvoiceDocument: data.InvoiceDocument,
-// 		TotalNetAmount:  data.TotalNetAmount,
-// 	}
+	data := pm
+	res := &TotalNetAmount{
+		InvoiceDocument: data.InvoiceDocument,
+		TotalNetAmount:  data.TotalNetAmount,
+	}
 
-// 	return &totalNetAmount
-// }
+	return res
+}
 
 // // HeaderPartner
 // func (psdc *SDC) ConvertToHeaderOrdersHeaderPartner(

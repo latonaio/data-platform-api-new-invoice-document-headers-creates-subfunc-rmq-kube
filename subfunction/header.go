@@ -110,47 +110,31 @@ func (f *SubFunction) CalculateInvoiceDocument(
 	return data, err
 }
 
-// func (f *SubFunction) TotalNetAmount(
-// 	sdc *api_input_reader.SDC,
-// 	psdc *api_processing_data_formatter.SDC,
-// ) (*api_processing_data_formatter.TotalNetAmount, error) {
-// 	var err error
-// 	// オーダー参照
-// 	// TODO: nullの場合どうする？
-// 	if sdc.InvoiceDocument.TotalNetAmount != nil {
-// 		for i, v := range *psdc.HeaderOrdersHeader {
-// 			if v.TotalNetAmount == *sdc.InvoiceDocument.TotalNetAmount {
-// 				data = psdc.ConvertToTotalNetAmount(&v.TotalNetAmount)
-// 				break
-// 			}
-// 			if i == len(*psdc.HeaderOrdersHeader)-1 {
-// 				return nil, xerrors.Errorf("TotalNetAmountが一致しません。")
-// 			}
-// 		}
-// 	}
+func (f *SubFunction) TotalNetAmount(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) *api_processing_data_formatter.TotalNetAmount {
+	totalNetAmount := float32(0)
 
-// 	// // 入出荷伝票参照
-// 	// rows, err := f.db.Query(
-// 	// 	`SELECT InvoiceDocument, TotalNetAmount
-// 	// 	FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_invoice_document_header_data
-// 	// 	WHERE InvoiceDocument = ?;`, sdc.InvoiceDocument.InvoiceDocument,
-// 	// )
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
+	if psdc.ReferenceType.OrderID {
+		for _, v := range psdc.OrdersItem {
+			if v.NetAmount != nil {
+				totalNetAmount += *v.NetAmount
+			}
+		}
+	} else if psdc.ReferenceType.DeliveryDocument {
+		for _, v := range psdc.DeliveryDocumentItemData {
+			if v.NetAmount != nil {
+				totalNetAmount += *v.NetAmount
+			}
+		}
+	}
 
-// 	// dataQueryGets, err := psdc.ConvertToTotalNetAmountQueryGets(sdc, rows)
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
+	if sdc.InvoiceDocument.TotalNetAmount != nil {
+		totalNetAmount = *sdc.InvoiceDocument.TotalNetAmount
+	}
 
-// 	// if sdc.InvoiceDocument.TotalNetAmount != nil {
-// 	// 	if *dataQueryGets.TotalNetAmount == *sdc.InvoiceDocument.TotalNetAmount {
-// 	// 		data, err = psdc.ConvertToTotalNetAmount(dataQueryGets.TotalNetAmount)
-// 	// 	} else {
-// 	// 		return nil, xerrors.Errorf("TotalNetAmountが一致しません。")
-// 	// 	}
-// 	// }
+	data := psdc.ConvertToTotalNetAmount(&totalNetAmount)
 
-// 	return data, err
-// }
+	return data
+}

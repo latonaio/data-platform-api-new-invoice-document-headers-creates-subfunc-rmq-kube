@@ -13,7 +13,7 @@ type SDC struct {
 	DeliveryDocumentHeaderData []*DeliveryDocumentHeaderData `json:"DeliveryDocumentHeaderData"`
 	DeliveryDocumentItemData   []*DeliveryDocumentItemData   `json:"DeliveryDocumentItemData"`
 	CalculateInvoiceDocument   *CalculateInvoiceDocument     `json:"CalculateInvoiceDocument"`
-	// TotalNetAmount                      *TotalNetAmount                        `json:"TotalNetAmount"`
+	TotalNetAmount             *TotalNetAmount               `json:"TotalNetAmount"`
 }
 
 type MetaData struct {
@@ -24,6 +24,8 @@ type MetaData struct {
 type ProcessType struct {
 	BulkProcess       bool `json:"BulkProcess"`
 	IndividualProcess bool `json:"IndividualProcess"`
+	ArraySpec         bool `json:"ArraySpec"`
+	RangeSpec         bool `json:"RangeSpec"`
 }
 
 type ReferenceType struct {
@@ -315,12 +317,12 @@ type CalculateInvoiceDocument struct {
 	InvoiceDocument             *int `json:"InvoiceDocument"`
 }
 
-// type TotalNetAmountQueryGets struct {
-// 	InvoiceDocument *int     `json:"InvoiceDocument"`
-// 	TotalNetAmount  *float32 `json:"TotalNetAmount"`
-// }
+type TotalNetAmountQueryGets struct {
+	InvoiceDocument *int     `json:"InvoiceDocument"`
+	TotalNetAmount  *float32 `json:"TotalNetAmount"`
+}
 
-// type TotalNetAmount struct {
-// 	InvoiceDocument *int     `json:"InvoiceDocument"`
-// 	TotalNetAmount  *float32 `json:"TotalNetAmount"`
-// }
+type TotalNetAmount struct {
+	InvoiceDocument *int     `json:"InvoiceDocument"`
+	TotalNetAmount  *float32 `json:"TotalNetAmount"`
+}

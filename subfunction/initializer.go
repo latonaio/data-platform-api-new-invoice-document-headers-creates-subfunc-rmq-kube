@@ -32,9 +32,7 @@ func (f *SubFunction) MetaData(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) *api_processing_data_formatter.MetaData {
-	metaData := new(api_processing_data_formatter.MetaData)
-
-	metaData = psdc.ConvertToMetaData(sdc)
+	metaData := psdc.ConvertToMetaData(sdc)
 
 	return metaData
 }
@@ -47,6 +45,11 @@ func (f *SubFunction) ProcessType(
 
 	processType.BulkProcess = true
 	// processType.IndividualProcess = true
+
+	if processType.BulkProcess {
+		// processType.ArraySpec = true
+		processType.RangeSpec = true
+	}
 
 	return processType
 }
@@ -61,6 +64,30 @@ func (f *SubFunction) ReferenceType(
 	// referenceType.DeliveryDocument = true
 
 	return referenceType
+}
+
+func (f *SubFunction) OrderIDInBulkProcess(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) ([]*api_processing_data_formatter.OrderID, error) {
+	data := make([]*api_processing_data_formatter.OrderID, 0)
+	var err error
+
+	processType := psdc.ProcessType
+
+	if processType.ArraySpec {
+		data, err = f.OrderIDByArraySpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	} else if processType.RangeSpec {
+		data, err = f.OrderIDByRangeSpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
 }
 
 func (f *SubFunction) OrderIDByArraySpec(
@@ -570,37 +597,41 @@ func (f *SubFunction) DeliveryDocumentByReferenceDocument(
 	return data, err
 }
 
-// func (f *SubFunction) DeliveryDocumentHeaderPartner(
-// 	sdc *api_input_reader.SDC,
-// 	psdc *api_processing_data_formatter.SDC,
-// ) (*[]api_processing_data_formatter.DeliveryDocumentHeaderPartner, error) {
-// 	var args []interface{}
-
-// 	deliveryDocument := psdc.DeliveryDocument
-
-// 	repeat := strings.Repeat("?,", len(*deliveryDocument)-1) + "?"
-// 	for _, tag := range *deliveryDocument {
-// 		args = append(args, tag.DeliveryDocument)
-// 	}
-
-// 	rows, err := f.db.Query(
-// 		`SELECT DeliveryDocument, PartnerFunction, BusinessPartner
-// 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_partner_data
-// 		WHERE DeliveryDocument IN ( `+repeat+` );`, args...,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	data, err := psdc.ConvertToDeliveryDocumentHeaderPartner(sdc, rows)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return data, err
-// }
-
 func (f *SubFunction) CreateSdc(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+	osdc *dpfm_api_output_formatter.SDC,
+) error {
+	var err error
+
+	psdc.MetaData = f.MetaData(sdc, psdc)
+	psdc.ProcessType = f.ProcessType(sdc, psdc)
+	psdc.ReferenceType = f.ReferenceType(sdc, psdc)
+
+	referenceType := psdc.ReferenceType
+
+	if referenceType.OrderID {
+		err = f.OrdersReferenceProcess(sdc, psdc, osdc)
+		if err != nil {
+			return err
+		}
+	} else if referenceType.DeliveryDocument {
+		err = f.DeliveryDocumentReferenceProcess(sdc, psdc, osdc)
+		if err != nil {
+			return err
+		}
+	}
+
+	f.l.Info(psdc)
+	err = f.SetValue(sdc, psdc, osdc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *SubFunction) OrdersReferenceProcess(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 	osdc *dpfm_api_output_formatter.SDC,
@@ -609,27 +640,15 @@ func (f *SubFunction) CreateSdc(
 	var e error
 
 	wg := sync.WaitGroup{}
-	wg.Add(3)
-
-	psdc.MetaData = f.MetaData(sdc, psdc)
-	psdc.ProcessType = f.ProcessType(sdc, psdc)
-	psdc.ReferenceType = f.ReferenceType(sdc, psdc)
 
 	processType := psdc.ProcessType
 
+	wg.Add(1)
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		if processType.BulkProcess {
-
-			// // I-1-1. OrderIDの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			// psdc.OrderID, e = f.OrderIDByArraySpec(sdc, psdc)
-			// if e != nil {
-			// 	err = e
-			// 	return
-			// }
-
 			// I-1-1. OrderIDの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			psdc.OrderID, e = f.OrderIDByRangeSpec(sdc, psdc)
+			psdc.OrderID, e = f.OrderIDInBulkProcess(sdc, psdc)
 			if e != nil {
 				err = e
 				return
@@ -641,21 +660,6 @@ func (f *SubFunction) CreateSdc(
 				err = e
 				return
 			}
-
-			// I-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByRangeSpecification(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
-
-			//I-2-2. Delivery Document Itemの絞り込み
-			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInBulkProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
-
 		} else if processType.IndividualProcess {
 
 			// II-1-1. OrderIDが未請求対象であることの確認
@@ -671,21 +675,6 @@ func (f *SubFunction) CreateSdc(
 				err = e
 				return
 			}
-
-			// II-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByReferenceDocument(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
-
-			// II-2-2. Delivery Document Itemの絞り込み
-			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInIndividualProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
-
 		}
 		// 1-1.オーダー参照レコード・値の取得（オーダーヘッダ）
 		psdc.OrdersHeader, e = f.OrdersHeader(sdc, psdc)
@@ -699,6 +688,71 @@ func (f *SubFunction) CreateSdc(
 		if e != nil {
 			err = e
 			return
+		}
+
+		//3-1. InvoiceDocumentHeader
+		psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
+		if e != nil {
+			err = e
+			return
+		}
+
+		// 2-5. TotalNetAmount
+		psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
+	}(&wg)
+
+	wg.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *SubFunction) DeliveryDocumentReferenceProcess(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+	osdc *dpfm_api_output_formatter.SDC,
+) error {
+	var err error
+	var e error
+
+	wg := sync.WaitGroup{}
+
+	processType := psdc.ProcessType
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		if processType.BulkProcess {
+			// I-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
+			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByRangeSpecification(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
+
+			//I-2-2. Delivery Document Itemの絞り込み
+			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInBulkProcess(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
+
+		} else if processType.IndividualProcess {
+			// II-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
+			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByReferenceDocument(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
+
+			// II-2-2. Delivery Document Itemの絞り込み
+			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInIndividualProcess(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
 		}
 
 		// 2-1. 入出荷伝票参照レコード・値の取得（入出荷伝票ヘッダ）
@@ -721,7 +775,6 @@ func (f *SubFunction) CreateSdc(
 			err = e
 			return
 		}
-		// f.l.Info(psdc.CalculateInvoiceDocument)
 
 		// // 2-5. TotalNetAmount
 		// psdc.TotalNetAmount, e = f.TotalNetAmount(sdc, psdc)
@@ -729,71 +782,9 @@ func (f *SubFunction) CreateSdc(
 		// 	err = e
 		// 	return
 		// }
-
-		// // I-1-2. ヘッダパートナのデータ取得
-		// psdc.OrdersHeaderPartner, e = f.OrdersHeaderPartner(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
-
-		// // 1-I-2. オーダー参照レコード・値の取得（オーダーヘッダパートナ）
-		// psdc.HeaderOrdersHeaderPartner, e = f.HeaderOrdersHeaderPartner(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
-
-	}(&wg)
-
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		// // // I-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-		// // psdc.DeliveryDocument, e = f.DeliveryDocumentByNumberSpecification(sdc, psdc)
-		// // if e != nil {
-		// // 	err = e
-		// // 	return
-		// // }
-
-		// // I-2-2. ヘッダパートナのデータ取得
-		// psdc.DeliveryDocumentHeaderPartner, e = f.DeliveryDocumentHeaderPartner(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
-
-		// // 1-II-2. 入出荷伝票参照レコード・値の取得（入出荷伝票ヘッダパートナ）
-		// psdc.HeaderDeliveryDocumentHeaderPartner, e = f.HeaderDeliveryDocumentHeaderPartner(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
-
-		// // // 2-5. TotalNetAmount
-		// // psdc.TotalNetAmount, e = f.TotalNetAmount(sdc, psdc)
-		// // if e != nil {
-		// // 	err = e
-		// // 	return
-		// // }
-	}(&wg)
-
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		// // 1-1 InvoiceDocument
-		// psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
 	}(&wg)
 
 	wg.Wait()
-	if err != nil {
-		return err
-	}
-
-	f.l.Info(psdc)
-	err = f.SetValue(sdc, psdc, osdc)
 	if err != nil {
 		return err
 	}
