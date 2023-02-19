@@ -12,8 +12,18 @@ type SDC struct {
 	OrdersItem                 []*OrdersItem                 `json:"OrdersItem"`
 	DeliveryDocumentHeaderData []*DeliveryDocumentHeaderData `json:"DeliveryDocumentHeaderData"`
 	DeliveryDocumentItemData   []*DeliveryDocumentItemData   `json:"DeliveryDocumentItemData"`
-	CalculateInvoiceDocument   *CalculateInvoiceDocument     `json:"CalculateInvoiceDocument"`
+	CalculateInvoiceDocument   []*CalculateInvoiceDocument   `json:"CalculateInvoiceDocument"`
 	TotalNetAmount             *TotalNetAmount               `json:"TotalNetAmount"`
+	TotalTaxAmount             *TotalTaxAmount               `json:"TotalTaxAmount"`
+	TotalGrossAmount           *TotalGrossAmount             `json:"TotalGrossAmount"`
+	InvoiceDocumentDate        *InvoiceDocumentDate          `json:"InvoiceDocumentDate"`
+	PaymentTerms               []*PaymentTerms               `json:"PaymentTerms"`
+	PaymentDueDate             *PaymentDueDate               `json:"PaymentDueDate"`
+	NetPaymentDays             *NetPaymentDays               `json:"NetPaymentDays"`
+	CreationDateHeader         *CreationDate                 `json:"CreationDateHeader"`
+	LastChangeDateHeader       *LastChangeDate               `json:"LastChangeDateHeader"`
+	CreationTimeHeader         *CreationTime                 `json:"CreationTimeHeader"`
+	LastChangeTimeHeader       *LastChangeTime               `json:"LastChangeTimeHeader"`
 }
 
 type MetaData struct {
@@ -99,7 +109,7 @@ type DeliveryDocumentHeaderKey struct {
 }
 
 type DeliveryDocumentHeader struct {
-	DeliveryDocument                *int   `json:"DeliveryDocument"`
+	DeliveryDocument                int    `json:"DeliveryDocument"`
 	BillFromParty                   *int   `json:"BillFromParty"`
 	BillToParty                     *int   `json:"BillToParty"`
 	HeaderCompleteDeliveryIsDefined *bool  `json:"HeaderCompleteDeliveryIsDefined"`
@@ -199,6 +209,15 @@ type OrdersItem struct {
 	ReferenceDocumentItem                   *int     `json:"ReferenceDocumentItem"`
 	TaxCode                                 *string  `json:"TaxCode"`
 	TaxRate                                 *float32 `json:"TaxRate"`
+}
+
+type BillParty struct {
+	BillFromParty        int `json:"BillFromParty"`
+	BillToParty          int `json:"BillToParty"`
+	OrderID              int `json:"OrderID"`
+	OrderItem            int `json:"OrderItem"`
+	DeliveryDocument     int `json:"DeliveryDocument"`
+	DeliveryDocumentItem int `json:"DeliveryDocumentItem"`
 }
 
 type DeliveryDocumentHeaderData struct {
@@ -314,7 +333,13 @@ type CalculateInvoiceDocumentQueryGets struct {
 
 type CalculateInvoiceDocument struct {
 	InvoiceDocumentLatestNumber *int `json:"InvoiceDocumentLatestNumber"`
-	InvoiceDocument             *int `json:"InvoiceDocument"`
+	InvoiceDocument             int  `json:"InvoiceDocument"`
+	OrderID                     int  `json:"OrderID"`
+	OrderItem                   int  `json:"OrderItem"`
+	DeliveryDocument            int  `json:"DeliveryDocument"`
+	DeliveryDocumentItem        int  `json:"DeliveryDocumentItem"`
+	BillFromParty               int  `json:"BillFromParty"`
+	BillToParty                 int  `json:"BillToParty"`
 }
 
 type TotalNetAmountQueryGets struct {
@@ -325,4 +350,57 @@ type TotalNetAmountQueryGets struct {
 type TotalNetAmount struct {
 	InvoiceDocument *int     `json:"InvoiceDocument"`
 	TotalNetAmount  *float32 `json:"TotalNetAmount"`
+}
+
+type TotalTaxAmount struct {
+	InvoiceDocument *int     `json:"invoiceDocument"`
+	TotalTaxAmount  *float32 `json:"TotalTaxAmount"`
+}
+
+type TotalGrossAmount struct {
+	InvoiceDocument  *int     `json:"invoiceDocument"`
+	TotalGrossAmount *float32 `json:"TotalGrossAmount"`
+}
+
+type InvoiceDocumentDate struct {
+	InvoiceDocument     *int    `json:"invoiceDocument"`
+	InvoiceDocumentDate *string `json:"invoiceDocumentDate"`
+}
+
+type PaymentDueDate struct {
+	InvoiceDocumentDate string  `json:"invoiceDocumentDate"`
+	PaymentDueDate      *string `json:"PaymentDueDate"`
+}
+
+type NetPaymentDays struct {
+	InvoiceDocumentDate string  `json:"InvoiceDocumentDate"`
+	PaymentDueDate      *string `json:"PaymentDueDate"`
+	NetPaymentDays      *int    `json:"NetPaymentDays"`
+}
+
+type PaymentTerms struct {
+	PaymentTerms                string `json:"PaymentTerms"`
+	BaseDate                    int    `json:"BaseDate"`
+	BaseDateCalcAddMonth        *int   `json:"BaseDateCalcAddMonth"`
+	BaseDateCalcFixedDate       *int   `json:"BaseDateCalcFixedDate"`
+	PaymentDueDateCalcAddMonth  *int   `json:"PaymentDueDateCalcAddMonth"`
+	PaymentDueDateCalcFixedDate *int   `json:"PaymentDueDateCalcFixedDate"`
+}
+
+//日付等の処理
+
+type CreationDate struct {
+	CreationDate string `json:"CreationDate"`
+}
+
+type LastChangeDate struct {
+	LastChangeDate string `json:"LastChangeDate"`
+}
+
+type CreationTime struct {
+	CreationTime string `json:"CreationTime"`
+}
+
+type LastChangeTime struct {
+	LastChangeTime string `json:"LastChangeTime"`
 }

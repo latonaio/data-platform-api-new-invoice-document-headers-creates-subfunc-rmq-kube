@@ -263,7 +263,7 @@ func (f *SubFunction) DeliveryDocumentItemInBulkProcess(
 	deliveryDocumentItem := psdc.DeliveryDocumentHeader
 
 	for i := range deliveryDocumentItem {
-		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, *(deliveryDocumentItem)[i].DeliveryDocument)
+		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, (deliveryDocumentItem)[i].DeliveryDocument)
 	}
 
 	repeat := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
@@ -379,7 +379,7 @@ func (f *SubFunction) DeliveryDocumentItemInIndividualProcess(
 	deliveryDocumentItem := psdc.DeliveryDocumentHeader
 
 	for i := range deliveryDocumentItem {
-		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, *(deliveryDocumentItem)[i].DeliveryDocument)
+		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, (deliveryDocumentItem)[i].DeliveryDocument)
 	}
 
 	repeat := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
@@ -410,103 +410,6 @@ func (f *SubFunction) DeliveryDocumentItemInIndividualProcess(
 
 	return data, err
 }
-
-// func (f *SubFunction) OrdersHeaderPartner(
-// 	sdc *api_input_reader.SDC,
-// 	psdc *api_processing_data_formatter.SDC,
-// ) (*[]api_processing_data_formatter.OrdersHeaderPartner, error) {
-// 	var args []interface{}
-
-// 	orderID := psdc.OrderID
-
-// 	repeat := strings.Repeat("?,", len(*orderID)-1) + "?"
-// 	for _, tag := range *orderID {
-// 		args = append(args, tag.OrderID)
-// 	}
-
-// 	rows, err := f.db.Query(
-// 		`SELECT OrderID, PartnerFunction, BusinessPartner
-// 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_orders_header_partner_data
-// 		WHERE OrderID IN ( `+repeat+` );`, args...,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	data, err := psdc.ConvertToOrdersHeaderPartner(sdc, rows)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return data, err
-// }
-
-// func (f *SubFunction) DeliveryDocumentByNumberSpecification(
-// 	sdc *api_input_reader.SDC,
-// 	psdc *api_processing_data_formatter.SDC,
-// ) (*[]api_processing_data_formatter.DeliveryDocument, error) {
-// 	var args []interface{}
-
-// 	billFromParty := sdc.InputParameters.BillFromParty
-// 	billToParty := sdc.InputParameters.BillToParty
-
-// 	if len(*billFromParty) != len(*billToParty) {
-// 		return nil, nil
-// 	}
-
-// 	dataKey := psdc.ConvertToDeliveryDocumentByNumberSpecificationKey(sdc, len(*billFromParty))
-
-// 	for i := range *billFromParty {
-// 		dataKey.BillFromParty[i] = (*billFromParty)[i]
-// 		dataKey.BillToParty[i] = (*billToParty)[i]
-// 	}
-
-// 	repeat := strings.Repeat("(?,?),", len(dataKey.BillFromParty)-1) + "(?,?)"
-// 	for i := range dataKey.BillFromParty {
-// 		args = append(args, dataKey.BillFromParty[i], dataKey.BillToParty[i])
-// 	}
-
-// 	args = append(
-// 		args,
-// 		dataKey.HeaderCompleteDeliveryIsDefined,
-// 		dataKey.HeaderDeliveryStatus,
-// 		dataKey.HeaderBillingBlockStatus,
-// 		dataKey.HeaderBillingStatus,
-// 	)
-
-// 	var count *int
-// 	err := f.db.QueryRow(
-// 		`SELECT COUNT(*)
-// 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_data
-// 		WHERE (BillFromParty, BillToParty) IN ( `+repeat+` )
-// 		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus) = (?, ?, ?)
-// 		AND HeaderBillingStatus <> ?;`, args...,
-// 	).Scan(&count)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if *count == 0 || *count > 1000 {
-// 		return nil, xerrors.Errorf("OrderIDの検索結果がゼロ件または1,000件超です。")
-// 	}
-
-// 	rows, err := f.db.Query(
-// 		`SELECT DeliveryDocument, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus
-// 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_data
-// 		WHERE (BillFromParty, BillToParty) IN ( `+repeat+` )
-// 		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus) = (?, ?, ?)
-// 		AND HeaderBillingStatus <> ?;`, args...,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	data, err := psdc.ConvertToDeliveryDocumentByNumberSpecification(sdc, rows)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return data, err
-// }
 
 func (f *SubFunction) DeliveryDocumentByRangeSpecification(
 	sdc *api_input_reader.SDC,
@@ -654,7 +557,7 @@ func (f *SubFunction) OrdersReferenceProcess(
 				return
 			}
 
-			//I-1-2. OrderItemの絞り込み
+			//I-1-2. OrderItemの絞り込み  //I-1-1
 			psdc.OrderItem, e = f.OrderItemInBulkProcess(sdc, psdc)
 			if e != nil {
 				err = e
@@ -669,36 +572,76 @@ func (f *SubFunction) OrdersReferenceProcess(
 				return
 			}
 
-			//II-1-2. OrderItemの絞り込み
+			//II-1-2. OrderItemの絞り込み  //II-1-1
 			psdc.OrderItem, e = f.OrderItemInIndividualProcess(sdc, psdc)
 			if e != nil {
 				err = e
 				return
 			}
 		}
-		// 1-1.オーダー参照レコード・値の取得（オーダーヘッダ）
-		psdc.OrdersHeader, e = f.OrdersHeader(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
 
-		// 1-2. オーダー参照レコード・値の取得（オーダー明細）
-		psdc.OrdersItem, e = f.OrdersItem(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			// 1-1.オーダー参照レコード・値の取得（オーダーヘッダ）  //I-1-2, II-1-2
+			psdc.OrdersHeader, e = f.OrdersHeader(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
 
-		//3-1. InvoiceDocumentHeader
-		psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
+			//3-1. InvoiceDocumentHeader //1-1
+			psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
 
-		// 2-5. TotalNetAmount
-		psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
+			//2-8 InvoiceDocumentDate
+			psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
+
+			//2-9  PaymentDueDate  //1-1
+			psdc.PaymentDueDate, e = f.PaymentDueDate(sdc, psdc)
+
+			//2-10. NetPaymentDays  //2-8,2-9
+			psdc.NetPaymentDays, e = f.NetPaymentDays(sdc, psdc)
+		}(wg)
+
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			// 1-2. オーダー参照レコード・値の取得（オーダー明細）  //I-1-2, II-1-2
+			psdc.OrdersItem, e = f.OrdersItem(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
+			// 2-5. TotalNetAmount  //1-2
+			psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
+
+			//2-6 TotalTaxAmount  //1-2
+			psdc.TotalTaxAmount = f.TotalTaxAmount(sdc, psdc)
+
+			//2-7 TotalGrossAmount  //1-2
+			psdc.TotalGrossAmount = f.TotalGrossAmount(sdc, psdc)
+		}(wg)
+
+	}(&wg)
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		// 99-1-1. CreationDate(Header)
+		psdc.CreationDateHeader = f.CreationDateHeader(sdc, psdc)
+
+		// 99-2-1. LastChangeDate(Header)
+		psdc.LastChangeDateHeader = f.LastChangeDateHeader(sdc, psdc)
+
+		//99-3-1. CreationTime(Header)
+		psdc.CreationTimeHeader = f.CreationTimeHeader(sdc, psdc)
+
+		//99-4-1. LastChangeTime(Header)
+		psdc.LastChangeTimeHeader = f.LastChangeTimeHeader(sdc, psdc)
 	}(&wg)
 
 	wg.Wait()
@@ -732,7 +675,7 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 				return
 			}
 
-			//I-2-2. Delivery Document Itemの絞り込み
+			//I-2-2. Delivery Document Itemの絞り込み  //I-2-1
 			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInBulkProcess(sdc, psdc)
 			if e != nil {
 				err = e
@@ -747,7 +690,7 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 				return
 			}
 
-			// II-2-2. Delivery Document Itemの絞り込み
+			// II-2-2. Delivery Document Itemの絞り込み  //II-2-1
 			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInIndividualProcess(sdc, psdc)
 			if e != nil {
 				err = e
@@ -755,33 +698,82 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 			}
 		}
 
-		// 2-1. 入出荷伝票参照レコード・値の取得（入出荷伝票ヘッダ）
-		psdc.DeliveryDocumentHeaderData, e = f.DeliveryDocumentHeaderData(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			// 2-1. 入出荷伝票参照レコード・値の取得（入出荷伝票ヘッダ） //II-2-1,II-2-2
+			psdc.DeliveryDocumentHeaderData, e = f.DeliveryDocumentHeaderData(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
 
-		// 2-2. 入出荷伝票参照レコード・値の取得（入出荷伝票明細）
-		psdc.DeliveryDocumentItemData, e = f.DeliveryDocumentItemData(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
+		}(wg)
 
-		//3-1. InvoiceDocumentHeader
-		psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
-		if e != nil {
-			err = e
-			return
-		}
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			// 2-2. 入出荷伝票参照レコード・値の取得（入出荷伝票明細） ////II-2-1,II-2-2
+			psdc.DeliveryDocumentItemData, e = f.DeliveryDocumentItemData(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
 
-		// // 2-5. TotalNetAmount
-		// psdc.TotalNetAmount, e = f.TotalNetAmount(sdc, psdc)
-		// if e != nil {
-		// 	err = e
-		// 	return
-		// }
+			//3-1. InvoiceDocumentHeader //2-2
+			psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
+			if e != nil {
+				err = e
+				return
+			}
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				// 2-5. TotalNetAmount  //2-2
+				psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
+
+				//2-6 TotalTaxAmount  //2-2
+				psdc.TotalTaxAmount = f.TotalTaxAmount(sdc, psdc)
+
+				//2-7 TotalGrossAmount  //2-2
+				psdc.TotalGrossAmount = f.TotalGrossAmount(sdc, psdc)
+			}(wg)
+
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				//2-8 InvoiceDocumentDate
+				psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
+
+				//2-9  PaymentDueDate //2-2
+				psdc.PaymentDueDate, e = f.PaymentDueDate(sdc, psdc)
+
+				//2-10. NetPaymentDays  //2-8,2-9
+				psdc.NetPaymentDays, e = f.NetPaymentDays(sdc, psdc)
+			}(wg)
+
+		}(wg)
+
+	}(&wg)
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+
+		// 99-1-1. CreationDate(Header)
+		psdc.CreationDateHeader = f.CreationDateHeader(sdc, psdc)
+
+		// 99-2-1. LastChangeDate(Header)
+		psdc.LastChangeDateHeader = f.LastChangeDateHeader(sdc, psdc)
+
+		//99-3-1. CreationTime(Header)
+		psdc.CreationTimeHeader = f.CreationTimeHeader(sdc, psdc)
+
+		//99-4-1. LastChangeTime(Header)
+		psdc.LastChangeTimeHeader = f.LastChangeTimeHeader(sdc, psdc)
+
 	}(&wg)
 
 	wg.Wait()

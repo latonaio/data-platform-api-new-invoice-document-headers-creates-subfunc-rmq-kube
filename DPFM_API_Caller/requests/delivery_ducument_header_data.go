@@ -22,6 +22,7 @@ type DeliveryDocumentHeaderData struct {
 	IsExportImport                         *bool   `json:"IsExportImport"`
 	OrderID                                *int    `json:"OrderID"`
 	OrderItem                              *int    `json:"OrderItem"`
+	CintontractType                        *string `json:"CintontractType"`
 	ContractType                           *string `json:"ContractType"`
 	OrderValidityStartDate                 *string `json:"OrderValidityStartDate"`
 	OrderValidityEndDate                   *string `json:"OrderValidityEndDate"`

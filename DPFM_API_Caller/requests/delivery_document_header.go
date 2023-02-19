@@ -1,7 +1,7 @@
 package requests
 
 type DeliveryDocumentHeader struct {
-	DeliveryDocument                *int   `json:"DeliveryDocument"`
+	DeliveryDocument                int    `json:"DeliveryDocument"`
 	BillFromParty                   *int   `json:"BillFromParty"`
 	BillToParty                     *int   `json:"BillToParty"`
 	HeaderCompleteDeliveryIsDefined *bool  `json:"HeaderCompleteDeliveryIsDefined"`
