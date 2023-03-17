@@ -10,10 +10,10 @@
 	"api_type": "creates",
 	"InputParameters": {
 		"InvoiceDocumentDate": "2023-02-15",
-		"BillFromParty": [201, null],
+		"BillFromParty": [null, null],
 		"BillFromPartyTo": 201,
 		"BillFromPartyFrom": 201,
-		"BillToParty": [101, null],
+		"BillToParty": [null, null],
 		"BillToPartyTo": 101,
 		"BillToPartyFrom": 101,
 		"ConfirmedDeliveryDate": ["", ""],
@@ -22,7 +22,7 @@
 		"ActualGoodsIssueDate": ["", ""],
 		"ActualGoodsIssueDateTo": "2024-12-31",
 		"ActualGoodsIssueDateFrom": "2020-12-31",
-		"ReferenceDocument": 80000013
+		"ReferenceDocument": 1
 	},
 	"InvoiceDocument": {
 		"InvoiceDocument": 110,
@@ -40,7 +40,7 @@
 		"Payer": 501,
 		"Payee": 601,
 		"InvoiceDocumentDate": "",
-		"InvoiceDocumentTime": "12:00:00",
+		"InvoiceDocumentTime": "",
 		"InvoicePeriodStartDate": "",
 		"InvoicePeriodEndDate": "",
 		"AccountingPostingDate": "",

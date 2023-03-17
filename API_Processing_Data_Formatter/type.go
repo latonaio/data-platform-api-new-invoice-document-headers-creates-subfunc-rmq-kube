@@ -320,17 +320,6 @@ type DeliveryDocumentItemData struct {
 	CountryOfOriginLanguage                 *string  `json:"CountryOfOriginLanguage"`
 }
 
-type CalculateInvoiceDocumentKey struct {
-	ServiceLabel             string `json:"ServiceLabel"`
-	FieldNameWithNumberRange string `json:"FieldNameWithNumberRange"`
-}
-
-type CalculateInvoiceDocumentQueryGets struct {
-	ServiceLabel                string `json:"service_label"`
-	FieldNameWithNumberRange    string `json:"FieldNameWithNumberRange"`
-	InvoiceDocumentLatestNumber *int   `json:"InvoiceDocumentLatestNumber"`
-}
-
 type CalculateInvoiceDocument struct {
 	InvoiceDocumentLatestNumber *int `json:"InvoiceDocumentLatestNumber"`
 	InvoiceDocument             int  `json:"InvoiceDocument"`

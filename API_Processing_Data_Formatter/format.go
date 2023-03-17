@@ -826,60 +826,9 @@ func (psdc *SDC) ConvertToDeliveryDocumentHeaderData(
 	return res, nil
 }
 
-func (psdc *SDC) ConvertToInvoiceDocumentHeaderKey() *CalculateInvoiceDocumentKey {
-	pm := &requests.CalculateInvoiceDocumentKey{
-		FieldNameWithNumberRange: "InvoiceDocument",
-	}
-
-	data := pm
-	res := CalculateInvoiceDocumentKey{
-		ServiceLabel:             data.ServiceLabel,
-		FieldNameWithNumberRange: data.FieldNameWithNumberRange,
-	}
-
-	return &res
-}
-
-func (psdc *SDC) ConvertToInvoiceDocumentHeaderQueryGets(
-	sdc *api_input_reader.SDC,
-	rows *sql.Rows,
-) (*CalculateInvoiceDocumentQueryGets, error) {
-	defer rows.Close()
-	var res *CalculateInvoiceDocumentQueryGets
-
-	i := 0
-	for rows.Next() {
-		i++
-		pm := &requests.CalculateInvoiceDocumentQueryGets{}
-
-		err := rows.Scan(
-			&pm.ServiceLabel,
-			&pm.FieldNameWithNumberRange,
-			&pm.InvoiceDocumentLatestNumber,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		data := pm
-		res = &CalculateInvoiceDocumentQueryGets{
-			ServiceLabel:                data.ServiceLabel,
-			FieldNameWithNumberRange:    data.FieldNameWithNumberRange,
-			InvoiceDocumentLatestNumber: data.InvoiceDocumentLatestNumber,
-		}
-
-	}
-	if i == 0 {
-		return nil, fmt.Errorf("'data_platform_number_range_latest_number_data'テーブルに対象のレコードが存在しません。")
-	}
-
-	return res, nil
-}
-
-func (psdc *SDC) ConvertToCalculateInvoiceDocument(invoiceDocumentLatestNumber *int, invoiceDocument, orderID, deliveryDocument, deliveryDocumentItem, billFromParty, billToParty int) *CalculateInvoiceDocument {
+func (psdc *SDC) ConvertToCalculateInvoiceDocument(invoiceDocumentLatestNumber, invoiceDocument, orderID, deliveryDocument, deliveryDocumentItem, billFromParty, billToParty int) *CalculateInvoiceDocument {
 	pm := &requests.CalculateInvoiceDocument{}
 
-	pm.InvoiceDocumentLatestNumber = invoiceDocumentLatestNumber
 	pm.InvoiceDocument = invoiceDocument
 	pm.OrderID = orderID
 	pm.DeliveryDocument = deliveryDocument

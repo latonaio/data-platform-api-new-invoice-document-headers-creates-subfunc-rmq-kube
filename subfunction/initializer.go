@@ -43,27 +43,72 @@ func (f *SubFunction) ProcessType(
 ) *api_processing_data_formatter.ProcessType {
 	processType := psdc.ConvertToProcessType()
 
-	processType.BulkProcess = true
-	// processType.IndividualProcess = true
+	if isBulkProcess(sdc, processType) {
+		processType.BulkProcess = true
+	}
 
-	if processType.BulkProcess {
-		// processType.ArraySpec = true
-		processType.RangeSpec = true
+	if isIndividualProcess(sdc) {
+		processType.IndividualProcess = true
 	}
 
 	return processType
 }
 
+func isBulkProcess(
+	sdc *api_input_reader.SDC,
+	processType *api_processing_data_formatter.ProcessType,
+) bool {
+	inputParameters := sdc.InputParameters
+
+	if inputParameters.InvoiceDocumentDate != nil &&
+		inputParameters.BillFromParty != nil && inputParameters.BillToParty != nil &&
+		inputParameters.ConfirmedDeliveryDate != nil && inputParameters.ActualGoodsIssueDate != nil {
+		if (*inputParameters.BillFromParty)[0] != nil && (*inputParameters.BillToParty)[0] != nil &&
+			(*inputParameters.ConfirmedDeliveryDate)[0] != nil && (*inputParameters.ActualGoodsIssueDate)[0] != nil {
+			if len(*inputParameters.InvoiceDocumentDate) != 0 &&
+				len(*(*inputParameters.ConfirmedDeliveryDate)[0]) != 0 && len(*(*inputParameters.ActualGoodsIssueDate)[0]) != 0 {
+				processType.ArraySpec = true
+				return true
+			}
+		}
+	}
+
+	if inputParameters.InvoiceDocumentDate != nil &&
+		inputParameters.BillFromPartyTo != nil && inputParameters.BillFromPartyFrom != nil &&
+		inputParameters.BillToPartyTo != nil && inputParameters.BillToPartyFrom != nil &&
+		inputParameters.ConfirmedDeliveryDateTo != nil && inputParameters.ConfirmedDeliveryDateFrom != nil &&
+		inputParameters.ActualGoodsIssueDateTo != nil && inputParameters.ActualGoodsIssueDateFrom != nil {
+		if len(*inputParameters.InvoiceDocumentDate) != 0 &&
+			len(*inputParameters.ConfirmedDeliveryDateTo) != 0 && len(*inputParameters.ConfirmedDeliveryDateFrom) != 0 &&
+			len(*inputParameters.ActualGoodsIssueDateTo) != 0 && len(*inputParameters.ActualGoodsIssueDateFrom) != 0 {
+			processType.RangeSpec = true
+			return true
+		}
+	}
+
+	return false
+}
+
+func isIndividualProcess(sdc *api_input_reader.SDC) bool {
+	return sdc.InputParameters.ReferenceDocument != nil
+}
+
 func (f *SubFunction) ReferenceType(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
-) *api_processing_data_formatter.ReferenceType {
+) (*api_processing_data_formatter.ReferenceType, error) {
+	var err error
 	referenceType := psdc.ConvertToReferenceType()
 
-	referenceType.OrderID = true
-	// referenceType.DeliveryDocument = true
+	if 1 <= *sdc.InputParameters.ReferenceDocument && *sdc.InputParameters.ReferenceDocument <= 9999999 {
+		referenceType.OrderID = true
+	} else if 80000000 <= *sdc.InputParameters.ReferenceDocument && *sdc.InputParameters.ReferenceDocument <= 89999999 {
+		referenceType.DeliveryDocument = true
+	} else {
+		return nil, xerrors.Errorf("入力のReferenceDocumentがOrderIDとDeliveryDocumentの範囲にありません。")
+	}
 
-	return referenceType
+	return referenceType, err
 }
 
 func (f *SubFunction) OrderIDInBulkProcess(
@@ -301,7 +346,7 @@ func (f *SubFunction) OrderIDByReferenceDocument(
 ) ([]*api_processing_data_formatter.OrderID, error) {
 	dataKey := psdc.ConvertToOrderIDByReferenceDocumentKey()
 
-	dataKey.ReferenceDocument = sdc.InputParameters.ReferenceDocument
+	dataKey.ReferenceDocument = *sdc.InputParameters.ReferenceDocument
 
 	rows, err := f.db.Query(
 		`SELECT OrderID, HeaderCompleteDeliveryIsDefined, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
@@ -465,7 +510,7 @@ func (f *SubFunction) DeliveryDocumentByReferenceDocument(
 ) ([]*api_processing_data_formatter.DeliveryDocumentHeader, error) {
 	dataKey := psdc.ConvertToDeliveryDocumentByReferenceDocumentKey()
 
-	dataKey.ReferenceDocument = sdc.InputParameters.ReferenceDocument
+	dataKey.ReferenceDocument = *sdc.InputParameters.ReferenceDocument
 
 	count := new(int)
 	err := f.db.QueryRow(
@@ -509,7 +554,10 @@ func (f *SubFunction) CreateSdc(
 
 	psdc.MetaData = f.MetaData(sdc, psdc)
 	psdc.ProcessType = f.ProcessType(sdc, psdc)
-	psdc.ReferenceType = f.ReferenceType(sdc, psdc)
+	psdc.ReferenceType, err = f.ReferenceType(sdc, psdc)
+	if err != nil {
+		return err
+	}
 
 	referenceType := psdc.ReferenceType
 
@@ -591,11 +639,7 @@ func (f *SubFunction) OrdersReferenceProcess(
 			}
 
 			//3-1. InvoiceDocumentHeader //1-1
-			psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
+			psdc.CalculateInvoiceDocument = f.CalculateInvoiceDocument(sdc, psdc)
 
 			//2-8 InvoiceDocumentDate
 			psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
@@ -721,11 +765,8 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 			}
 
 			//3-1. InvoiceDocumentHeader //2-2
-			psdc.CalculateInvoiceDocument, e = f.CalculateInvoiceDocument(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
+			psdc.CalculateInvoiceDocument = f.CalculateInvoiceDocument(sdc, psdc)
+
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
 				defer wg.Done()
