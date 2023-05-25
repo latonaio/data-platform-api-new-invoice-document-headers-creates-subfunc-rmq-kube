@@ -6,6 +6,6 @@ type OrderItemKey struct {
 	ItemDeliveryStatus            string `json:"ItemDeliveryStatus"`
 	ItemBillingStatus             string `json:"ItemBillingStatus"`
 	ItemBillingBlockStatus        bool   `json:"ItemBillingBlockStatus"`
-	IsCancelled                   *bool  `json:"IsCancelled"`
-	IsMarkedForDeletion           *bool  `json:"IsMarkedForDeletion"`
+	IsCancelled                   bool   `json:"IsCancelled"`
+	IsMarkedForDeletion           bool   `json:"IsMarkedForDeletion"`
 }

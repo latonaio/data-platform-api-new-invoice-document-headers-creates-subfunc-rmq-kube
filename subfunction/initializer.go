@@ -37,78 +37,126 @@ func (f *SubFunction) MetaData(
 	return metaData
 }
 
+func (f *SubFunction) ReferenceType(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) (*api_processing_data_formatter.ReferenceType, error) {
+	referenceType := psdc.ConvertToReferenceType()
+
+	if sdc.InputParameters.ReferenceDocument == nil {
+		return nil, xerrors.Errorf("入力のReferenceDocumentがnullです。")
+	}
+
+	referenceDocument := *sdc.InputParameters.ReferenceDocument
+	if 1 <= referenceDocument && referenceDocument <= 9999999 {
+		referenceType.OrderID = true
+	} else if 80000000 <= referenceDocument && referenceDocument <= 89999999 {
+		referenceType.DeliveryDocument = true
+	} else {
+		return nil, xerrors.Errorf("入力のReferenceDocumentがOrderIDとDeliveryDocumentの範囲にありません。")
+	}
+
+	return referenceType, nil
+}
+
 func (f *SubFunction) ProcessType(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
-) *api_processing_data_formatter.ProcessType {
+) (*api_processing_data_formatter.ProcessType, error) {
+	referenceType := psdc.ReferenceType
 	processType := psdc.ConvertToProcessType()
 
-	if isBulkProcess(sdc, processType) {
+	if isBulkProcess(sdc, processType, referenceType) {
 		processType.BulkProcess = true
 	}
 
-	if isIndividualProcess(sdc) {
+	if isIndividualProcess(sdc, processType, referenceType) {
 		processType.IndividualProcess = true
 	}
 
-	return processType
+	if !processType.BulkProcess && !processType.IndividualProcess {
+		return nil, xerrors.Errorf("一括登録または個別登録に必要な入力パラメータが揃っていません。")
+	}
+
+	return processType, nil
 }
 
 func isBulkProcess(
 	sdc *api_input_reader.SDC,
 	processType *api_processing_data_formatter.ProcessType,
+	referenceType *api_processing_data_formatter.ReferenceType,
 ) bool {
 	inputParameters := sdc.InputParameters
 
-	if inputParameters.InvoiceDocumentDate != nil &&
-		inputParameters.BillFromParty != nil && inputParameters.BillToParty != nil &&
-		inputParameters.ConfirmedDeliveryDate != nil && inputParameters.ActualGoodsIssueDate != nil {
-		if (*inputParameters.BillFromParty)[0] != nil && (*inputParameters.BillToParty)[0] != nil &&
-			(*inputParameters.ConfirmedDeliveryDate)[0] != nil && (*inputParameters.ActualGoodsIssueDate)[0] != nil {
-			if len(*inputParameters.InvoiceDocumentDate) != 0 &&
-				len(*(*inputParameters.ConfirmedDeliveryDate)[0]) != 0 && len(*(*inputParameters.ActualGoodsIssueDate)[0]) != 0 {
+	if referenceType.OrderID {
+		if inputParameters.BillFromParty != nil && inputParameters.BillToParty != nil {
+			if (*inputParameters.BillFromParty)[0] != nil && (*inputParameters.BillToParty)[0] != nil {
 				processType.ArraySpec = true
 				return true
 			}
 		}
-	}
-
-	if inputParameters.InvoiceDocumentDate != nil &&
-		inputParameters.BillFromPartyTo != nil && inputParameters.BillFromPartyFrom != nil &&
-		inputParameters.BillToPartyTo != nil && inputParameters.BillToPartyFrom != nil &&
-		inputParameters.ConfirmedDeliveryDateTo != nil && inputParameters.ConfirmedDeliveryDateFrom != nil &&
-		inputParameters.ActualGoodsIssueDateTo != nil && inputParameters.ActualGoodsIssueDateFrom != nil {
-		if len(*inputParameters.InvoiceDocumentDate) != 0 &&
-			len(*inputParameters.ConfirmedDeliveryDateTo) != 0 && len(*inputParameters.ConfirmedDeliveryDateFrom) != 0 &&
-			len(*inputParameters.ActualGoodsIssueDateTo) != 0 && len(*inputParameters.ActualGoodsIssueDateFrom) != 0 {
+		if inputParameters.BillFromPartyTo != nil && inputParameters.BillFromPartyFrom != nil &&
+			inputParameters.BillToPartyTo != nil && inputParameters.BillToPartyFrom != nil {
 			processType.RangeSpec = true
 			return true
+		}
+	} else if referenceType.DeliveryDocument {
+		if inputParameters.BillFromParty != nil && inputParameters.BillToParty != nil &&
+			inputParameters.ConfirmedDeliveryDate != nil && inputParameters.ActualGoodsIssueDate != nil {
+			if (*inputParameters.BillFromParty)[0] != nil && (*inputParameters.BillToParty)[0] != nil &&
+				(*inputParameters.ConfirmedDeliveryDate)[0] != nil && (*inputParameters.ActualGoodsIssueDate)[0] != nil {
+				if len(*(*inputParameters.ConfirmedDeliveryDate)[0]) != 0 && len(*(*inputParameters.ActualGoodsIssueDate)[0]) != 0 {
+					processType.ArraySpec = true
+					return true
+				}
+			}
+		}
+		if inputParameters.BillFromPartyTo != nil && inputParameters.BillFromPartyFrom != nil &&
+			inputParameters.BillToPartyTo != nil && inputParameters.BillToPartyFrom != nil &&
+			inputParameters.ConfirmedDeliveryDateTo != nil && inputParameters.ConfirmedDeliveryDateFrom != nil &&
+			inputParameters.ActualGoodsIssueDateTo != nil && inputParameters.ActualGoodsIssueDateFrom != nil {
+			if len(*inputParameters.ConfirmedDeliveryDateTo) != 0 && len(*inputParameters.ConfirmedDeliveryDateFrom) != 0 &&
+				len(*inputParameters.ActualGoodsIssueDateTo) != 0 && len(*inputParameters.ActualGoodsIssueDateFrom) != 0 {
+				processType.RangeSpec = true
+				return true
+			}
 		}
 	}
 
 	return false
 }
 
-func isIndividualProcess(sdc *api_input_reader.SDC) bool {
-	return sdc.InputParameters.ReferenceDocument != nil
-}
-
-func (f *SubFunction) ReferenceType(
+func isIndividualProcess(
 	sdc *api_input_reader.SDC,
-	psdc *api_processing_data_formatter.SDC,
-) (*api_processing_data_formatter.ReferenceType, error) {
-	var err error
-	referenceType := psdc.ConvertToReferenceType()
+	processType *api_processing_data_formatter.ProcessType,
+	referenceType *api_processing_data_formatter.ReferenceType,
+) bool {
+	inputParameters := sdc.InputParameters
 
-	if 1 <= *sdc.InputParameters.ReferenceDocument && *sdc.InputParameters.ReferenceDocument <= 9999999 {
-		referenceType.OrderID = true
-	} else if 80000000 <= *sdc.InputParameters.ReferenceDocument && *sdc.InputParameters.ReferenceDocument <= 89999999 {
-		referenceType.DeliveryDocument = true
-	} else {
-		return nil, xerrors.Errorf("入力のReferenceDocumentがOrderIDとDeliveryDocumentの範囲にありません。")
+	if inputParameters.ReferenceDocument != nil {
+		if referenceType.OrderID {
+			return true
+		} else if referenceType.DeliveryDocument {
+			if inputParameters.ConfirmedDeliveryDate != nil && inputParameters.ActualGoodsIssueDate != nil {
+				if (*inputParameters.ConfirmedDeliveryDate)[0] != nil && (*inputParameters.ActualGoodsIssueDate)[0] != nil {
+					if len(*(*inputParameters.ConfirmedDeliveryDate)[0]) != 0 && len(*(*inputParameters.ActualGoodsIssueDate)[0]) != 0 {
+						processType.ArraySpec = true
+						return true
+					}
+				}
+			}
+			if inputParameters.ConfirmedDeliveryDateTo != nil && inputParameters.ConfirmedDeliveryDateFrom != nil &&
+				inputParameters.ActualGoodsIssueDateTo != nil && inputParameters.ActualGoodsIssueDateFrom != nil {
+				if len(*inputParameters.ConfirmedDeliveryDateTo) != 0 && len(*inputParameters.ConfirmedDeliveryDateFrom) != 0 &&
+					len(*inputParameters.ActualGoodsIssueDateTo) != 0 && len(*inputParameters.ActualGoodsIssueDateFrom) != 0 {
+					processType.RangeSpec = true
+					return true
+				}
+			}
+		}
 	}
 
-	return referenceType, err
+	return false
 }
 
 func (f *SubFunction) OrderIDInBulkProcess(
@@ -130,6 +178,8 @@ func (f *SubFunction) OrderIDInBulkProcess(
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, xerrors.Errorf("OrderIDの絞り込み（一括登録）に必要な入力パラメータが揃っていません。")
 	}
 
 	return data, nil
@@ -141,23 +191,21 @@ func (f *SubFunction) OrderIDByArraySpec(
 ) ([]*api_processing_data_formatter.OrderID, error) {
 	args := make([]interface{}, 0)
 
+	dataKey := psdc.ConvertToOrderIDKey()
+
 	billFromParty := sdc.InputParameters.BillFromParty
 	billToParty := sdc.InputParameters.BillToParty
 
-	if len(*billFromParty) != len(*billToParty) {
-		return nil, nil
+	dataKey.BillFromParty = append(dataKey.BillFromParty, *billFromParty...)
+	dataKey.BillToParty = append(dataKey.BillToParty, *billToParty...)
+
+	repeat1 := strings.Repeat("?,", len(dataKey.BillFromParty)-1) + "?"
+	for _, v := range dataKey.BillFromParty {
+		args = append(args, v)
 	}
-
-	dataKey := psdc.ConvertToOrderIDByArraySpecKey(len(*billFromParty))
-
-	for i := range *billFromParty {
-		dataKey.BillFromParty[i] = (*billFromParty)[i]
-		dataKey.BillToParty[i] = (*billToParty)[i]
-	}
-
-	repeat := strings.Repeat("(?,?),", len(dataKey.BillFromParty)-1) + "(?,?)"
-	for i := range dataKey.BillFromParty {
-		args = append(args, dataKey.BillFromParty[i], dataKey.BillToParty[i])
+	repeat2 := strings.Repeat("?,", len(dataKey.BillToParty)-1) + "?"
+	for _, v := range dataKey.BillToParty {
+		args = append(args, v)
 	}
 
 	args = append(
@@ -165,6 +213,8 @@ func (f *SubFunction) OrderIDByArraySpec(
 		dataKey.HeaderCompleteDeliveryIsDefined,
 		dataKey.HeaderDeliveryStatus,
 		dataKey.HeaderBillingBlockStatus,
+		dataKey.IsCancelled,
+		dataKey.IsMarkedForDeletion,
 		dataKey.HeaderBillingStatus,
 	)
 
@@ -172,8 +222,9 @@ func (f *SubFunction) OrderIDByArraySpec(
 	err := f.db.QueryRow(
 		`SELECT COUNT(*)
 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_orders_header_data
-		WHERE (BillFromParty, BillToParty) IN ( `+repeat+` )
-		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus) = (?, ?, ?)
+		WHERE BillFromParty IN ( `+repeat1+` )
+		AND BillToParty IN ( `+repeat2+` )
+		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?, ?)
 		AND HeaderBillingStatus <> ?;`, args...,
 	).Scan(&count)
 	if err != nil {
@@ -184,10 +235,12 @@ func (f *SubFunction) OrderIDByArraySpec(
 	}
 
 	rows, err := f.db.Query(
-		`SELECT OrderID, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus
+		`SELECT OrderID, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined,
+		HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_orders_header_data
-		WHERE (BillFromParty, BillToParty) IN ( `+repeat+` )
-		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus) = (?, ?, ?)
+		WHERE BillFromParty IN ( `+repeat1+` )
+		AND BillToParty IN ( `+repeat2+` )
+		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?, ?)
 		AND HeaderBillingStatus <> ?;`, args...,
 	)
 	if err != nil {
@@ -195,7 +248,7 @@ func (f *SubFunction) OrderIDByArraySpec(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToOrderIDByArraySpec(rows)
+	data, err := psdc.ConvertToOrderID(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +260,7 @@ func (f *SubFunction) OrderIDByRangeSpec(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) ([]*api_processing_data_formatter.OrderID, error) {
-	dataKey := psdc.ConvertToOrderIDByRangeSpecKey()
+	dataKey := psdc.ConvertToOrderIDKey()
 
 	dataKey.BillFromPartyFrom = sdc.InputParameters.BillFromPartyFrom
 	dataKey.BillFromPartyTo = sdc.InputParameters.BillFromPartyTo
@@ -231,7 +284,8 @@ func (f *SubFunction) OrderIDByRangeSpec(
 	}
 
 	rows, err := f.db.Query(
-		`SELECT OrderID, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingStatus,IsCancelled, IsMarkedForDeletion, HeaderBillingBlockStatus
+		`SELECT OrderID, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined,
+		HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_orders_header_data
 		WHERE BillFromParty BETWEEN ? AND ?
 		AND BillToParty BETWEEN ? AND ?
@@ -243,7 +297,7 @@ func (f *SubFunction) OrderIDByRangeSpec(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToOrderIDByRangeSpec(rows)
+	data, err := psdc.ConvertToOrderID(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -251,100 +305,11 @@ func (f *SubFunction) OrderIDByRangeSpec(
 	return data, err
 }
 
-func (f *SubFunction) OrderItemInBulkProcess(
-	sdc *api_input_reader.SDC,
-	psdc *api_processing_data_formatter.SDC,
-) ([]*api_processing_data_formatter.OrderItem, error) {
-	args := make([]interface{}, 0)
-
-	dataKey := psdc.ConvertToOrderItemInBulkProcessKey()
-
-	orderID := psdc.OrderID
-
-	for i := range orderID {
-		dataKey.OrderID = append(dataKey.OrderID, (orderID)[i].OrderID)
-	}
-
-	repeat := strings.Repeat("?,", len(dataKey.OrderID)-1) + "?"
-	for _, v := range dataKey.OrderID {
-		args = append(args, v)
-	}
-
-	args = append(args, dataKey.ItemCompleteDeliveryIsDefined, dataKey.ItemDeliveryStatus, dataKey.ItemBillingBlockStatus, dataKey.IsCancelled, dataKey.IsMarkedForDeletion, dataKey.ItemBillingStatus)
-
-	rows, err := f.db.Query(
-		`SELECT OrderID, OrderItem, ItemCompleteDeliveryIsDefined, ItemDeliveryStatus, ItemBillingStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion
-		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_orders_item_data
-		WHERE OrderID IN ( `+repeat+` )
-		AND (ItemCompleteDeliveryIsDefined, ItemDeliveryStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?, ?)
-		AND ItemBillingStatus <> ?;`, args...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	data, err := psdc.ConvertToOrderItemInBulkProcess(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, err
-}
-
-func (f *SubFunction) DeliveryDocumentItemInBulkProcess(
-	sdc *api_input_reader.SDC,
-	psdc *api_processing_data_formatter.SDC,
-) ([]*api_processing_data_formatter.DeliveryDocumentItem, error) {
-	args := make([]interface{}, 0)
-
-	dataKey := psdc.ConvertToDeliveryDocumentItemInBulkProcessKey()
-
-	dataKey.ConfirmedDeliveryDateFrom = sdc.InputParameters.ConfirmedDeliveryDateFrom
-	dataKey.ConfirmedDeliveryDateTo = sdc.InputParameters.ConfirmedDeliveryDateTo
-	dataKey.ActualGoodsIssueDateFrom = sdc.InputParameters.ActualGoodsIssueDateFrom
-	dataKey.ActualGoodsIssueDateTo = sdc.InputParameters.ActualGoodsIssueDateTo
-
-	deliveryDocumentItem := psdc.DeliveryDocumentHeader
-
-	for i := range deliveryDocumentItem {
-		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, (deliveryDocumentItem)[i].DeliveryDocument)
-	}
-
-	repeat := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
-	for _, v := range dataKey.DeliveryDocument {
-		args = append(args, v)
-	}
-
-	args = append(args, dataKey.ConfirmedDeliveryDateFrom, dataKey.ConfirmedDeliveryDateTo, dataKey.ActualGoodsIssueDateFrom, dataKey.ActualGoodsIssueDateTo, dataKey.ItemCompleteDeliveryIsDefined, dataKey.ItemBillingBlockStatus, dataKey.IsCancelled, dataKey.IsMarkedForDeletion, dataKey.ItemBillingStatus)
-
-	rows, err := f.db.Query(
-		`SELECT DeliveryDocument, DeliveryDocumentItem, ConfirmedDeliveryDate, ActualGoodsIssueDate, ItemCompleteDeliveryIsDefined, ItemBillingStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion
-		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_item_data
-		WHERE DeliveryDocument IN ( `+repeat+` )
-		AND ConfirmedDeliveryDate BETWEEN ? AND ?
-		AND ActualGoodsIssueDate BETWEEN ? AND ?
-		AND (ItemCompleteDeliveryIsDefined, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?)
-		AND ItemBillingStatus <> ?;`, args...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	data, err := psdc.ConvertToDeliveryDocumentItemInBulkProcess(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, err
-}
-
-func (f *SubFunction) OrderIDByReferenceDocument(
+func (f *SubFunction) OrderIDInIndividualProcess(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) ([]*api_processing_data_formatter.OrderID, error) {
-	dataKey := psdc.ConvertToOrderIDByReferenceDocumentKey()
+	dataKey := psdc.ConvertToOrderIDInIndividualProcessKey()
 
 	dataKey.ReferenceDocument = *sdc.InputParameters.ReferenceDocument
 
@@ -359,7 +324,7 @@ func (f *SubFunction) OrderIDByReferenceDocument(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToOrderIDByReferenceDocument(rows)
+	data, err := psdc.ConvertToOrderIDInIndividualProcess(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -367,13 +332,13 @@ func (f *SubFunction) OrderIDByReferenceDocument(
 	return data, err
 }
 
-func (f *SubFunction) OrderItemInIndividualProcess(
+func (f *SubFunction) OrderItem(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) ([]*api_processing_data_formatter.OrderItem, error) {
 	args := make([]interface{}, 0)
 
-	dataKey := psdc.ConvertToOrderItemInIndividualProcessKey()
+	dataKey := psdc.ConvertToOrderItemKey()
 
 	orderID := psdc.OrderID
 
@@ -400,7 +365,7 @@ func (f *SubFunction) OrderItemInIndividualProcess(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToOrderItemInIndividualProcess(rows)
+	data, err := psdc.ConvertToOrderItem(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -408,47 +373,96 @@ func (f *SubFunction) OrderItemInIndividualProcess(
 	return data, err
 }
 
-func (f *SubFunction) DeliveryDocumentItemInIndividualProcess(
+func (f *SubFunction) DeliveryDocumentInBulkProcess(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
-) ([]*api_processing_data_formatter.DeliveryDocumentItem, error) {
-	args := make([]interface{}, 0)
+) ([]*api_processing_data_formatter.DeliveryDocumentHeader, error) {
+	data := make([]*api_processing_data_formatter.DeliveryDocumentHeader, 0)
+	var err error
 
-	dataKey := psdc.ConvertToDeliveryDocumentItemInIndividualProcessKey()
+	processType := psdc.ProcessType
 
-	dataKey.ConfirmedDeliveryDateFrom = sdc.InputParameters.ConfirmedDeliveryDateFrom
-	dataKey.ConfirmedDeliveryDateTo = sdc.InputParameters.ConfirmedDeliveryDateTo
-	dataKey.ActualGoodsIssueDateFrom = sdc.InputParameters.ActualGoodsIssueDateFrom
-	dataKey.ActualGoodsIssueDateTo = sdc.InputParameters.ActualGoodsIssueDateTo
-
-	deliveryDocumentItem := psdc.DeliveryDocumentHeader
-
-	for i := range deliveryDocumentItem {
-		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, (deliveryDocumentItem)[i].DeliveryDocument)
+	if processType.ArraySpec {
+		data, err = f.DeliveryDocumentByArraySpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	} else if processType.RangeSpec {
+		data, err = f.DeliveryDocumentByRangeSpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, xerrors.Errorf("DeliveryDocumentの絞り込み（一括登録）に必要な入力パラメータが揃っていません。")
 	}
 
-	repeat := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
-	for _, v := range dataKey.DeliveryDocument {
+	return data, nil
+}
+
+func (f *SubFunction) DeliveryDocumentByArraySpec(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) ([]*api_processing_data_formatter.DeliveryDocumentHeader, error) {
+	args := make([]interface{}, 0)
+
+	dataKey := psdc.ConvertToDeliveryDocumentKey()
+
+	billFromParty := sdc.InputParameters.BillFromParty
+	billToParty := sdc.InputParameters.BillToParty
+
+	dataKey.BillFromParty = append(dataKey.BillFromParty, *billFromParty...)
+	dataKey.BillToParty = append(dataKey.BillToParty, *billToParty...)
+
+	repeat1 := strings.Repeat("?,", len(dataKey.BillFromParty)-1) + "?"
+	for _, v := range dataKey.BillFromParty {
+		args = append(args, v)
+	}
+	repeat2 := strings.Repeat("?,", len(dataKey.BillToParty)-1) + "?"
+	for _, v := range dataKey.BillToParty {
 		args = append(args, v)
 	}
 
-	args = append(args, dataKey.ConfirmedDeliveryDateFrom, dataKey.ConfirmedDeliveryDateTo, dataKey.ActualGoodsIssueDateFrom, dataKey.ActualGoodsIssueDateTo, dataKey.ItemCompleteDeliveryIsDefined, dataKey.ItemBillingBlockStatus, dataKey.IsCancelled, dataKey.IsMarkedForDeletion, dataKey.ItemBillingStatus)
+	args = append(
+		args,
+		dataKey.HeaderCompleteDeliveryIsDefined,
+		dataKey.HeaderDeliveryStatus,
+		dataKey.HeaderBillingBlockStatus,
+		dataKey.IsCancelled,
+		dataKey.IsMarkedForDeletion,
+		dataKey.HeaderBillingStatus,
+	)
+
+	count := new(int)
+	err := f.db.QueryRow(
+		`SELECT COUNT(*)
+		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_data
+		WHERE BillFromParty IN ( `+repeat1+` )
+		AND BillToParty IN ( `+repeat2+` )
+		AND (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?, ?)
+		AND HeaderBillingStatus <> ?;`, args...,
+	).Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+	if *count == 0 || *count > 1000 {
+		return nil, xerrors.Errorf("DeliveryDocumentの検索結果がゼロ件または1,000件超です。")
+	}
 
 	rows, err := f.db.Query(
-		`SELECT DeliveryDocument, DeliveryDocumentItem, ConfirmedDeliveryDate, ActualGoodsIssueDate, ItemCompleteDeliveryIsDefined, ItemBillingStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion
-		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_item_data
-		WHERE DeliveryDocument IN ( `+repeat+` )
-		AND ConfirmedDeliveryDate BETWEEN ? AND ?
-		AND ActualGoodsIssueDate BETWEEN ? AND ?
-		AND (ItemCompleteDeliveryIsDefined, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?)
-		AND ItemBillingStatus <> ?;`, args...,
+		`SELECT DeliveryDocument, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined,
+		HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
+		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_data
+		WHERE BillFromParty IN ( `+repeat1+` )
+		AND BillToParty IN ( `+repeat2+` )
+		AND  (HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?, ?)
+		AND HeaderBillingStatus <> ?;`, args...,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToDeliveryDocumentItemInIndividualProcess(rows)
+	data, err := psdc.ConvertToDeliveryDocument(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -456,11 +470,11 @@ func (f *SubFunction) DeliveryDocumentItemInIndividualProcess(
 	return data, err
 }
 
-func (f *SubFunction) DeliveryDocumentByRangeSpecification(
+func (f *SubFunction) DeliveryDocumentByRangeSpec(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) ([]*api_processing_data_formatter.DeliveryDocumentHeader, error) {
-	dataKey := psdc.ConvertToDeliveryDocumentByRangeSpecificationKey()
+	dataKey := psdc.ConvertToDeliveryDocumentKey()
 
 	dataKey.BillFromPartyFrom = sdc.InputParameters.BillFromPartyFrom
 	dataKey.BillFromPartyTo = sdc.InputParameters.BillFromPartyTo
@@ -480,11 +494,12 @@ func (f *SubFunction) DeliveryDocumentByRangeSpecification(
 		return nil, err
 	}
 	if *count == 0 || *count > 1000 {
-		return nil, xerrors.Errorf("OrderIDの検索結果がゼロ件または1,000件超です。")
+		return nil, xerrors.Errorf("DeliveryDocumentの検索結果がゼロ件または1,000件超です。")
 	}
 
 	rows, err := f.db.Query(
-		`SELECT DeliveryDocument, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined, HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
+		`SELECT DeliveryDocument, BillFromParty, BillToParty, HeaderCompleteDeliveryIsDefined,
+		HeaderDeliveryStatus, HeaderBillingStatus, HeaderBillingBlockStatus, IsCancelled, IsMarkedForDeletion
 		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_header_data
 		WHERE BillFromParty BETWEEN ? AND ?
 		AND BillToParty BETWEEN ? AND ?
@@ -496,7 +511,7 @@ func (f *SubFunction) DeliveryDocumentByRangeSpecification(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToDeliveryDocumentByRangeSpecification(rows)
+	data, err := psdc.ConvertToDeliveryDocument(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -504,11 +519,11 @@ func (f *SubFunction) DeliveryDocumentByRangeSpecification(
 	return data, err
 }
 
-func (f *SubFunction) DeliveryDocumentByReferenceDocument(
+func (f *SubFunction) DeliveryDocumentInIndividualProcess(
 	sdc *api_input_reader.SDC,
 	psdc *api_processing_data_formatter.SDC,
 ) ([]*api_processing_data_formatter.DeliveryDocumentHeader, error) {
-	dataKey := psdc.ConvertToDeliveryDocumentByReferenceDocumentKey()
+	dataKey := psdc.ConvertToDeliveryDocumentInIndividualProcessKey()
 
 	dataKey.ReferenceDocument = *sdc.InputParameters.ReferenceDocument
 
@@ -537,7 +552,139 @@ func (f *SubFunction) DeliveryDocumentByReferenceDocument(
 	}
 	defer rows.Close()
 
-	data, err := psdc.ConvertToDeliveryDocumentByReferenceDocument(rows)
+	data, err := psdc.ConvertToDeliveryDocumentInIndividualProcess(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, err
+}
+
+func (f *SubFunction) DeliveryDocumentItem(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) ([]*api_processing_data_formatter.DeliveryDocumentItem, error) {
+	data := make([]*api_processing_data_formatter.DeliveryDocumentItem, 0)
+	var err error
+
+	processType := psdc.ProcessType
+
+	if processType.ArraySpec {
+		data, err = f.DeliveryDocumentItemByArraySpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	} else if processType.RangeSpec {
+		data, err = f.DeliveryDocumentItemByRangeSpec(sdc, psdc)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, xerrors.Errorf("DeliveryDocumentItemの絞り込み（一括登録または個別登録）に必要な入力パラメータが揃っていません。")
+	}
+
+	return data, nil
+}
+
+func (f *SubFunction) DeliveryDocumentItemByArraySpec(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) ([]*api_processing_data_formatter.DeliveryDocumentItem, error) {
+	args := make([]interface{}, 0)
+
+	dataKey := psdc.ConvertToDeliveryDocumentItemKey()
+
+	deliveryDocumentItem := psdc.DeliveryDocumentHeader
+
+	for i := range deliveryDocumentItem {
+		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, deliveryDocumentItem[i].DeliveryDocument)
+	}
+
+	confirmedDeliveryDate := sdc.InputParameters.ConfirmedDeliveryDate
+	atualGoodsIssueDate := sdc.InputParameters.ActualGoodsIssueDate
+
+	dataKey.ConfirmedDeliveryDate = append(dataKey.ConfirmedDeliveryDate, *confirmedDeliveryDate...)
+	dataKey.ActualGoodsIssueDate = append(dataKey.ActualGoodsIssueDate, *atualGoodsIssueDate...)
+
+	repeat1 := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
+	for _, v := range dataKey.DeliveryDocument {
+		args = append(args, v)
+	}
+	repeat2 := strings.Repeat("?,", len(dataKey.ConfirmedDeliveryDate)-1) + "?"
+	for _, v := range dataKey.ConfirmedDeliveryDate {
+		args = append(args, v)
+	}
+	repeat3 := strings.Repeat("?,", len(dataKey.ActualGoodsIssueDate)-1) + "?"
+	for _, v := range dataKey.ActualGoodsIssueDate {
+		args = append(args, v)
+	}
+
+	args = append(args, dataKey.ItemCompleteDeliveryIsDefined, dataKey.ItemBillingBlockStatus, dataKey.IsCancelled, dataKey.IsMarkedForDeletion, dataKey.ItemBillingStatus)
+
+	rows, err := f.db.Query(
+		`SELECT DeliveryDocument, DeliveryDocumentItem, ConfirmedDeliveryDate, ActualGoodsIssueDate,
+		ItemCompleteDeliveryIsDefined, ItemBillingStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion
+		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_item_data
+		WHERE DeliveryDocument IN ( `+repeat1+` )
+		AND ConfirmedDeliveryDate IN ( `+repeat2+` )
+		AND ActualGoodsIssueDate IN ( `+repeat3+` )
+		AND (ItemCompleteDeliveryIsDefined, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?)
+		AND ItemBillingStatus <> ?;`, args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data, err := psdc.ConvertToDeliveryDocumentItem(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, err
+}
+
+func (f *SubFunction) DeliveryDocumentItemByRangeSpec(
+	sdc *api_input_reader.SDC,
+	psdc *api_processing_data_formatter.SDC,
+) ([]*api_processing_data_formatter.DeliveryDocumentItem, error) {
+	args := make([]interface{}, 0)
+
+	dataKey := psdc.ConvertToDeliveryDocumentItemKey()
+
+	dataKey.ConfirmedDeliveryDateFrom = sdc.InputParameters.ConfirmedDeliveryDateFrom
+	dataKey.ConfirmedDeliveryDateTo = sdc.InputParameters.ConfirmedDeliveryDateTo
+	dataKey.ActualGoodsIssueDateFrom = sdc.InputParameters.ActualGoodsIssueDateFrom
+	dataKey.ActualGoodsIssueDateTo = sdc.InputParameters.ActualGoodsIssueDateTo
+
+	deliveryDocumentItem := psdc.DeliveryDocumentHeader
+
+	for i := range deliveryDocumentItem {
+		dataKey.DeliveryDocument = append(dataKey.DeliveryDocument, deliveryDocumentItem[i].DeliveryDocument)
+	}
+
+	repeat := strings.Repeat("?,", len(dataKey.DeliveryDocument)-1) + "?"
+	for _, v := range dataKey.DeliveryDocument {
+		args = append(args, v)
+	}
+
+	args = append(args, dataKey.ConfirmedDeliveryDateFrom, dataKey.ConfirmedDeliveryDateTo, dataKey.ActualGoodsIssueDateFrom, dataKey.ActualGoodsIssueDateTo, dataKey.ItemCompleteDeliveryIsDefined, dataKey.ItemBillingBlockStatus, dataKey.IsCancelled, dataKey.IsMarkedForDeletion, dataKey.ItemBillingStatus)
+
+	rows, err := f.db.Query(
+		`SELECT DeliveryDocument, DeliveryDocumentItem, ConfirmedDeliveryDate, ActualGoodsIssueDate, ItemCompleteDeliveryIsDefined, ItemBillingStatus, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion
+		FROM DataPlatformMastersAndTransactionsMysqlKube.data_platform_delivery_document_item_data
+		WHERE DeliveryDocument IN ( `+repeat+` )
+		AND ConfirmedDeliveryDate BETWEEN ? AND ?
+		AND ActualGoodsIssueDate BETWEEN ? AND ?
+		AND (ItemCompleteDeliveryIsDefined, ItemBillingBlockStatus, IsCancelled, IsMarkedForDeletion) = (?, ?, ?, ?)
+		AND ItemBillingStatus <> ?;`, args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data, err := psdc.ConvertToDeliveryDocumentItem(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -553,14 +700,16 @@ func (f *SubFunction) CreateSdc(
 	var err error
 
 	psdc.MetaData = f.MetaData(sdc, psdc)
-	psdc.ProcessType = f.ProcessType(sdc, psdc)
 	psdc.ReferenceType, err = f.ReferenceType(sdc, psdc)
+	if err != nil {
+		return err
+	}
+	psdc.ProcessType, err = f.ProcessType(sdc, psdc)
 	if err != nil {
 		return err
 	}
 
 	referenceType := psdc.ReferenceType
-
 	if referenceType.OrderID {
 		err = f.OrdersReferenceProcess(sdc, psdc, osdc)
 		if err != nil {
@@ -590,9 +739,8 @@ func (f *SubFunction) OrdersReferenceProcess(
 	var err error
 	var e error
 
-	wg := sync.WaitGroup{}
-
 	processType := psdc.ProcessType
+	wg := sync.WaitGroup{}
 
 	wg.Add(1)
 	go func(wg *sync.WaitGroup) {
@@ -604,28 +752,20 @@ func (f *SubFunction) OrdersReferenceProcess(
 				err = e
 				return
 			}
-
-			//I-1-2. OrderItemの絞り込み  //I-1-1
-			psdc.OrderItem, e = f.OrderItemInBulkProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
 		} else if processType.IndividualProcess {
-
 			// II-1-1. OrderIDが未請求対象であることの確認
-			psdc.OrderID, e = f.OrderIDByReferenceDocument(sdc, psdc)
+			psdc.OrderID, e = f.OrderIDInIndividualProcess(sdc, psdc)
 			if e != nil {
 				err = e
 				return
 			}
+		}
 
-			//II-1-2. OrderItemの絞り込み  //II-1-1
-			psdc.OrderItem, e = f.OrderItemInIndividualProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
+		// II-1-2. OrderItemの絞り込み  //I-1-1またはII-1-1
+		psdc.OrderItem, e = f.OrderItem(sdc, psdc)
+		if e != nil {
+			err = e
+			return
 		}
 
 		wg.Add(1)
@@ -641,14 +781,6 @@ func (f *SubFunction) OrdersReferenceProcess(
 			//3-1. InvoiceDocumentHeader //1-1
 			psdc.CalculateInvoiceDocument = f.CalculateInvoiceDocument(sdc, psdc)
 
-			//2-8 InvoiceDocumentDate
-			psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
-
-			//2-9  PaymentDueDate  //1-1
-			psdc.PaymentDueDate, e = f.PaymentDueDate(sdc, psdc)
-
-			//2-10. NetPaymentDays  //2-8,2-9
-			psdc.NetPaymentDays, e = f.NetPaymentDays(sdc, psdc)
 		}(wg)
 
 		wg.Add(1)
@@ -660,16 +792,33 @@ func (f *SubFunction) OrdersReferenceProcess(
 				err = e
 				return
 			}
-			// 2-5. TotalNetAmount  //1-2
-			psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
 
-			//2-6 TotalTaxAmount  //1-2
-			psdc.TotalTaxAmount = f.TotalTaxAmount(sdc, psdc)
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				// 2-5. TotalNetAmount  //1-2
+				psdc.TotalNetAmount = f.TotalNetAmount(sdc, psdc)
 
-			//2-7 TotalGrossAmount  //1-2
-			psdc.TotalGrossAmount = f.TotalGrossAmount(sdc, psdc)
+				//2-6 TotalTaxAmount  //1-2
+				psdc.TotalTaxAmount = f.TotalTaxAmount(sdc, psdc)
+
+				//2-7 TotalGrossAmount  //1-2
+				psdc.TotalGrossAmount = f.TotalGrossAmount(sdc, psdc)
+			}(wg)
+
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				//2-8 InvoiceDocumentDate
+				psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
+
+				//2-9  PaymentDueDate  //1-2, 2-8
+				psdc.PaymentDueDate, e = f.PaymentDueDate(sdc, psdc)
+
+				//2-10. NetPaymentDays  //2-8,2-9
+				psdc.NetPaymentDays, e = f.NetPaymentDays(sdc, psdc)
+			}(wg)
 		}(wg)
-
 	}(&wg)
 
 	wg.Add(1)
@@ -704,42 +853,33 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 	var err error
 	var e error
 
-	wg := sync.WaitGroup{}
-
 	processType := psdc.ProcessType
+	wg := sync.WaitGroup{}
 
 	wg.Add(1)
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		if processType.BulkProcess {
 			// I-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByRangeSpecification(sdc, psdc)
+			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentInBulkProcess(sdc, psdc)
 			if e != nil {
 				err = e
 				return
 			}
-
-			//I-2-2. Delivery Document Itemの絞り込み  //I-2-1
-			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInBulkProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
-
 		} else if processType.IndividualProcess {
 			// II-2-1. Delivery Document Headerの絞り込み、および、入力パラメータによる請求元と請求先の絞り込み
-			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentByReferenceDocument(sdc, psdc)
+			psdc.DeliveryDocumentHeader, e = f.DeliveryDocumentInIndividualProcess(sdc, psdc)
 			if e != nil {
 				err = e
 				return
 			}
+		}
 
-			// II-2-2. Delivery Document Itemの絞り込み  //II-2-1
-			psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItemInIndividualProcess(sdc, psdc)
-			if e != nil {
-				err = e
-				return
-			}
+		// I-2-2. Delivery Document Itemの絞り込み  //I-2-1またはII-2-1
+		psdc.DeliveryDocumentItem, e = f.DeliveryDocumentItem(sdc, psdc)
+		if e != nil {
+			err = e
+			return
 		}
 
 		wg.Add(1)
@@ -788,7 +928,7 @@ func (f *SubFunction) DeliveryDocumentReferenceProcess(
 				//2-8 InvoiceDocumentDate
 				psdc.InvoiceDocumentDate = f.InvoiceDocumentDate(sdc, psdc)
 
-				//2-9  PaymentDueDate //2-2
+				//2-9  PaymentDueDate //2-2, 2-8
 				psdc.PaymentDueDate, e = f.PaymentDueDate(sdc, psdc)
 
 				//2-10. NetPaymentDays  //2-8,2-9

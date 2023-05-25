@@ -7,6 +7,7 @@ import (
 	api_processing_data_formatter "data-platform-api-invoice-document-headers-creates-subfunc-rmq/API_Processing_Data_Formatter"
 	"data-platform-api-invoice-document-headers-creates-subfunc-rmq/config"
 	"data-platform-api-invoice-document-headers-creates-subfunc-rmq/subfunction"
+	"time"
 
 	"fmt"
 
@@ -36,6 +37,7 @@ func main() {
 	}
 	defer rmq.Stop()
 	for msg := range iter {
+		start := time.Now()
 		msg.Success()
 		sdc, err := callProcess(ctx, db, msg, c)
 		sdc.SubfuncResult = getBoolPtr(err == nil)
@@ -48,6 +50,7 @@ func main() {
 		if err != nil {
 			l.Error(err)
 		}
+		l.Info("process time %v\n", time.Since(start).Milliseconds())
 	}
 }
 

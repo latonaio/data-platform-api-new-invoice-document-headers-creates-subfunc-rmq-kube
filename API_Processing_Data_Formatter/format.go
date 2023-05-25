@@ -49,50 +49,44 @@ func (psdc *SDC) ConvertToReferenceType() *ReferenceType {
 	return &referenceType
 }
 
-func (psdc *SDC) ConvertToOrderIDByArraySpecKey(length int) *OrderIDKey {
+func (psdc *SDC) ConvertToOrderIDKey() *OrderIDKey {
 	pm := &requests.OrderIDKey{
-		HeaderCompleteDeliveryIsDefined: getBoolPtr(true),
+		HeaderCompleteDeliveryIsDefined: true,
 		HeaderDeliveryStatus:            "CL",
 		HeaderBillingStatus:             "CL",
-		HeaderBillingBlockStatus:        getBoolPtr(false),
-	}
-
-	for i := 0; i < length; i++ {
-		pm.BillFromParty = append(pm.BillFromParty, nil)
-		pm.BillToParty = append(pm.BillToParty, nil)
+		HeaderBillingBlockStatus:        false,
+		IsCancelled:                     false,
+		IsMarkedForDeletion:             false,
 	}
 
 	data := pm
 	res := OrderIDKey{
+		BillFromParty:                   data.BillFromParty,
 		BillFromPartyFrom:               data.BillFromPartyFrom,
 		BillFromPartyTo:                 data.BillFromPartyTo,
+		BillToParty:                     data.BillToParty,
 		BillToPartyFrom:                 data.BillToPartyFrom,
 		BillToPartyTo:                   data.BillToPartyTo,
-		BillFromParty:                   data.BillFromParty,
-		BillToParty:                     data.BillToParty,
 		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
 		HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
 		HeaderBillingStatus:             data.HeaderBillingStatus,
 		HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
+		IsCancelled:                     data.IsCancelled,
+		IsMarkedForDeletion:             data.IsMarkedForDeletion,
 	}
 
 	return &res
 }
 
-func (psdc *SDC) ConvertToOrderIDByArraySpec(rows *sql.Rows) ([]*OrderID, error) {
+func (psdc *SDC) ConvertToOrderID(rows *sql.Rows) ([]*OrderID, error) {
 	defer rows.Close()
 	res := make([]*OrderID, 0)
 
-	for i := 0; true; i++ {
+	i := 0
+	for rows.Next() {
+		i++
 		pm := &requests.OrderID{}
 
-		if !rows.Next() {
-			if i == 0 {
-				return nil, fmt.Errorf("'data_platform_orders_header_data'テーブルに対象のレコードが存在しません。")
-			} else {
-				break
-			}
-		}
 		err := rows.Scan(
 			&pm.OrderID,
 			&pm.BillFromParty,
@@ -101,6 +95,8 @@ func (psdc *SDC) ConvertToOrderIDByArraySpec(rows *sql.Rows) ([]*OrderID, error)
 			&pm.HeaderDeliveryStatus,
 			&pm.HeaderBillingStatus,
 			&pm.HeaderBillingBlockStatus,
+			&pm.IsCancelled,
+			&pm.IsMarkedForDeletion,
 		)
 		if err != nil {
 			fmt.Printf("err = %+v \n", err)
@@ -116,74 +112,6 @@ func (psdc *SDC) ConvertToOrderIDByArraySpec(rows *sql.Rows) ([]*OrderID, error)
 			HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
 			HeaderBillingStatus:             data.HeaderBillingStatus,
 			HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
-		})
-	}
-
-	return res, nil
-}
-
-func (psdc *SDC) ConvertToOrderIDByRangeSpecKey() *OrderIDKey {
-	pm := &requests.OrderIDKey{
-		HeaderCompleteDeliveryIsDefined: getBoolPtr(true),
-		HeaderDeliveryStatus:            "CL",
-		HeaderBillingStatus:             "CL",
-		HeaderBillingBlockStatus:        getBoolPtr(false),
-		IsCancelled:                     getBoolPtr(false),
-		IsMarkedForDeletion:             getBoolPtr(false),
-	}
-
-	data := pm
-	res := OrderIDKey{
-		BillFromPartyFrom:               data.BillFromPartyFrom,
-		BillFromPartyTo:                 data.BillFromPartyTo,
-		BillToPartyFrom:                 data.BillToPartyFrom,
-		BillToPartyTo:                   data.BillToPartyTo,
-		BillFromParty:                   data.BillFromParty,
-		BillToParty:                     data.BillToParty,
-		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
-		HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
-		HeaderBillingStatus:             data.HeaderBillingStatus,
-		HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
-		IsCancelled:                     data.IsCancelled,
-		IsMarkedForDeletion:             data.IsMarkedForDeletion,
-	}
-
-	return &res
-}
-
-func (psdc *SDC) ConvertToOrderIDByRangeSpec(rows *sql.Rows) ([]*OrderID, error) {
-	defer rows.Close()
-	res := make([]*OrderID, 0)
-
-	i := 0
-	for rows.Next() {
-		i++
-		pm := &requests.OrderID{}
-
-		err := rows.Scan(
-			&pm.OrderID,
-			&pm.BillFromParty,
-			&pm.BillToParty,
-			&pm.HeaderCompleteDeliveryIsDefined,
-			&pm.HeaderDeliveryStatus,
-			&pm.HeaderBillingStatus,
-			&pm.HeaderBillingBlockStatus,
-			&pm.IsCancelled,
-			&pm.IsMarkedForDeletion,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		data := pm
-		res = append(res, &OrderID{
-			OrderID:                         data.OrderID,
-			BillFromParty:                   data.BillFromParty,
-			BillToParty:                     data.BillToParty,
-			HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
-			HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
-			HeaderBillingStatus:             data.HeaderBillingStatus,
-			HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
 			IsCancelled:                     data.IsCancelled,
 			IsMarkedForDeletion:             data.IsMarkedForDeletion,
 		})
@@ -195,147 +123,13 @@ func (psdc *SDC) ConvertToOrderIDByRangeSpec(rows *sql.Rows) ([]*OrderID, error)
 	return res, nil
 }
 
-func (psdc *SDC) ConvertToOrderItemInBulkProcessKey() *OrderItemKey {
-	pm := &requests.OrderItemKey{
-		ItemCompleteDeliveryIsDefined: true,
-		ItemDeliveryStatus:            "CL",
-		ItemBillingStatus:             "CL",
-		ItemBillingBlockStatus:        false,
-		IsCancelled:                   getBoolPtr(false),
-		IsMarkedForDeletion:           getBoolPtr(false),
-	}
-
-	data := pm
-	res := OrderItemKey{
-		OrderID:                       data.OrderID,
-		ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-		ItemDeliveryStatus:            data.ItemDeliveryStatus,
-		ItemBillingStatus:             data.ItemBillingStatus,
-		ItemBillingBlockStatus:        data.ItemBillingBlockStatus,
-		IsCancelled:                   data.IsCancelled,
-		IsMarkedForDeletion:           data.IsMarkedForDeletion,
-	}
-
-	return &res
-}
-
-func (psdc *SDC) ConvertToOrderItemInBulkProcess(rows *sql.Rows) ([]*OrderItem, error) {
-	defer rows.Close()
-	res := make([]*OrderItem, 0)
-
-	i := 0
-	for rows.Next() {
-		i++
-		pm := &requests.OrderItem{}
-
-		err := rows.Scan(
-			&pm.OrderID,
-			&pm.OrderItem,
-			&pm.ItemCompleteDeliveryIsDefined,
-			&pm.ItemDeliveryStatus,
-			&pm.ItemBillingStatus,
-			&pm.ItemBillingBlockStatus,
-			&pm.IsCancelled,
-			&pm.IsMarkedForDeletion,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		data := pm
-		res = append(res, &OrderItem{
-			OrderID:                       data.OrderID,
-			OrderItem:                     data.OrderItem,
-			ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-			ItemDeliveryStatus:            data.ItemDeliveryStatus,
-			ItemBillingStatus:             data.ItemBillingStatus,
-			ItemBillingBlockStatus:        data.ItemBillingBlockStatus,
-			IsCancelled:                   data.IsCancelled,
-			IsMarkedForDeletion:           data.IsMarkedForDeletion,
-		})
-	}
-	if i == 0 {
-		return nil, fmt.Errorf("'data_platform_orders_item_data'テーブルに対象のレコードが存在しません。")
-	}
-
-	return res, nil
-}
-
-func (psdc *SDC) ConvertToDeliveryDocumentItemInBulkProcessKey() *DeliveryDocumentItemKey {
-	pm := &requests.DeliveryDocumentItemKey{
-		ItemCompleteDeliveryIsDefined: true,
-		// ItemDeliveryStatus:            "CL",
-		ItemBillingStatus:      "CL",
-		ItemBillingBlockStatus: false,
-		IsCancelled:            getBoolPtr(false),
-		IsMarkedForDeletion:    getBoolPtr(false),
-	}
-
-	data := pm
-	res := DeliveryDocumentItemKey{
-		DeliveryDocument:              data.DeliveryDocument,
-		ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-		// ItemDeliveryStatus:            data.ItemDeliveryStatus,
-		ItemBillingStatus:      data.ItemBillingStatus,
-		ItemBillingBlockStatus: data.ItemBillingBlockStatus,
-		IsCancelled:            data.IsCancelled,
-		IsMarkedForDeletion:    data.IsMarkedForDeletion,
-	}
-
-	return &res
-}
-
-func (psdc *SDC) ConvertToDeliveryDocumentItemInBulkProcess(rows *sql.Rows) ([]*DeliveryDocumentItem, error) {
-	defer rows.Close()
-	res := make([]*DeliveryDocumentItem, 0)
-
-	i := 0
-	for rows.Next() {
-		i++
-		pm := &requests.DeliveryDocumentItem{}
-
-		err := rows.Scan(
-			&pm.DeliveryDocument,
-			&pm.DeliveryDocumentItem,
-			&pm.ConfirmedDeliveryDate,
-			&pm.ActualGoodsIssueDate,
-			&pm.ItemCompleteDeliveryIsDefined,
-			&pm.ItemBillingStatus,
-			&pm.ItemBillingBlockStatus,
-			&pm.IsCancelled,
-			&pm.IsMarkedForDeletion,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		data := pm
-		res = append(res, &DeliveryDocumentItem{
-			DeliveryDocument:              data.DeliveryDocument,
-			DeliveryDocumentItem:          data.DeliveryDocumentItem,
-			ConfirmedDeliveryDate:         data.ConfirmedDeliveryDate,
-			ActualGoodsIssueDate:          data.ActualGoodsIssueDate,
-			ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-			ItemBillingStatus:             data.ItemBillingStatus,
-			ItemBillingBlockStatus:        data.ItemBillingBlockStatus,
-			IsCancelled:                   data.IsCancelled,
-			IsMarkedForDeletion:           data.IsMarkedForDeletion,
-		})
-	}
-	if i == 0 {
-		return nil, fmt.Errorf("'data_platform_delivery_document_item_data'テーブルに対象のレコードが存在しません。")
-	}
-
-	return res, nil
-}
-
-func (psdc *SDC) ConvertToOrderIDByReferenceDocumentKey() *OrderIDKey {
+func (psdc *SDC) ConvertToOrderIDInIndividualProcessKey() *OrderIDKey {
 	pm := &requests.OrderIDKey{
-		HeaderCompleteDeliveryIsDefined: getBoolPtr(true),
+		HeaderCompleteDeliveryIsDefined: true,
 		HeaderDeliveryStatus:            "CL",
-		HeaderBillingBlockStatus:        getBoolPtr(false),
-		IsCancelled:                     getBoolPtr(false),
-		IsMarkedForDeletion:             getBoolPtr(false),
+		HeaderBillingBlockStatus:        false,
+		IsCancelled:                     false,
+		IsMarkedForDeletion:             false,
 	}
 
 	data := pm
@@ -352,7 +146,7 @@ func (psdc *SDC) ConvertToOrderIDByReferenceDocumentKey() *OrderIDKey {
 	return &res
 }
 
-func (psdc *SDC) ConvertToOrderIDByReferenceDocument(rows *sql.Rows) ([]*OrderID, error) {
+func (psdc *SDC) ConvertToOrderIDInIndividualProcess(rows *sql.Rows) ([]*OrderID, error) {
 	defer rows.Close()
 	res := make([]*OrderID, 0)
 
@@ -390,14 +184,14 @@ func (psdc *SDC) ConvertToOrderIDByReferenceDocument(rows *sql.Rows) ([]*OrderID
 	return res, nil
 }
 
-func (psdc *SDC) ConvertToOrderItemInIndividualProcessKey() *OrderItemKey {
+func (psdc *SDC) ConvertToOrderItemKey() *OrderItemKey {
 	pm := &requests.OrderItemKey{
 		ItemCompleteDeliveryIsDefined: true,
 		ItemDeliveryStatus:            "CL",
 		ItemBillingStatus:             "CL",
 		ItemBillingBlockStatus:        false,
-		IsCancelled:                   getBoolPtr(false),
-		IsMarkedForDeletion:           getBoolPtr(false),
+		IsCancelled:                   false,
+		IsMarkedForDeletion:           false,
 	}
 
 	data := pm
@@ -414,7 +208,7 @@ func (psdc *SDC) ConvertToOrderItemInIndividualProcessKey() *OrderItemKey {
 	return &res
 }
 
-func (psdc *SDC) ConvertToOrderItemInIndividualProcess(rows *sql.Rows) ([]*OrderItem, error) {
+func (psdc *SDC) ConvertToOrderItem(rows *sql.Rows) ([]*OrderItem, error) {
 	defer rows.Close()
 	res := make([]*OrderItem, 0)
 
@@ -456,92 +250,24 @@ func (psdc *SDC) ConvertToOrderItemInIndividualProcess(rows *sql.Rows) ([]*Order
 	return res, nil
 }
 
-func (psdc *SDC) ConvertToDeliveryDocumentItemInIndividualProcessKey() *DeliveryDocumentItemKey {
-	pm := &requests.DeliveryDocumentItemKey{
-		ItemCompleteDeliveryIsDefined: true,
-		// ItemDeliveryStatus:            "CL",
-		ItemBillingStatus:      "CL",
-		ItemBillingBlockStatus: false,
-		IsCancelled:            getBoolPtr(false),
-		IsMarkedForDeletion:    getBoolPtr(false),
-	}
-
-	data := pm
-	res := DeliveryDocumentItemKey{
-		DeliveryDocument:              data.DeliveryDocument,
-		ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-		// ItemDeliveryStatus:            data.ItemDeliveryStatus,
-		ItemBillingStatus:      data.ItemBillingStatus,
-		ItemBillingBlockStatus: data.ItemBillingBlockStatus,
-		IsCancelled:            data.IsCancelled,
-		IsMarkedForDeletion:    data.IsMarkedForDeletion,
-	}
-
-	return &res
-}
-
-func (psdc *SDC) ConvertToDeliveryDocumentItemInIndividualProcess(rows *sql.Rows) ([]*DeliveryDocumentItem, error) {
-	defer rows.Close()
-	res := make([]*DeliveryDocumentItem, 0)
-
-	i := 0
-	for rows.Next() {
-		i++
-		pm := &requests.DeliveryDocumentItem{}
-
-		err := rows.Scan(
-			&pm.DeliveryDocument,
-			&pm.DeliveryDocumentItem,
-			&pm.ConfirmedDeliveryDate,
-			&pm.ActualGoodsIssueDate,
-			&pm.ItemCompleteDeliveryIsDefined,
-			&pm.ItemBillingStatus,
-			&pm.ItemBillingBlockStatus,
-			&pm.IsCancelled,
-			&pm.IsMarkedForDeletion,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		data := pm
-		res = append(res, &DeliveryDocumentItem{
-			DeliveryDocument:              data.DeliveryDocument,
-			DeliveryDocumentItem:          data.DeliveryDocumentItem,
-			ConfirmedDeliveryDate:         data.ConfirmedDeliveryDate,
-			ActualGoodsIssueDate:          data.ActualGoodsIssueDate,
-			ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
-			ItemBillingStatus:             data.ItemBillingStatus,
-			ItemBillingBlockStatus:        data.ItemBillingBlockStatus,
-			IsCancelled:                   data.IsCancelled,
-			IsMarkedForDeletion:           data.IsMarkedForDeletion,
-		})
-	}
-	if i == 0 {
-		return nil, fmt.Errorf("'data_platform_delivery_document_item_data'テーブルに対象のレコードが存在しません。")
-	}
-
-	return res, nil
-}
-
-func (psdc *SDC) ConvertToDeliveryDocumentByRangeSpecificationKey() *DeliveryDocumentHeaderKey {
+func (psdc *SDC) ConvertToDeliveryDocumentKey() *DeliveryDocumentHeaderKey {
 	pm := &requests.DeliveryDocumentHeaderKey{
-		HeaderCompleteDeliveryIsDefined: getBoolPtr(true),
+		HeaderCompleteDeliveryIsDefined: true,
 		HeaderDeliveryStatus:            "CL",
 		HeaderBillingStatus:             "CL",
-		HeaderBillingBlockStatus:        getBoolPtr(false),
-		IsCancelled:                     getBoolPtr(false),
-		IsMarkedForDeletion:             getBoolPtr(false),
+		HeaderBillingBlockStatus:        false,
+		IsCancelled:                     false,
+		IsMarkedForDeletion:             false,
 	}
 
 	data := pm
 	res := DeliveryDocumentHeaderKey{
+		BillFromParty:                   data.BillFromParty,
 		BillFromPartyFrom:               data.BillFromPartyFrom,
 		BillFromPartyTo:                 data.BillFromPartyTo,
+		BillToParty:                     data.BillToParty,
 		BillToPartyFrom:                 data.BillToPartyFrom,
 		BillToPartyTo:                   data.BillToPartyTo,
-		BillFromParty:                   data.BillFromParty,
-		BillToParty:                     data.BillToParty,
 		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
 		HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
 		HeaderBillingStatus:             data.HeaderBillingStatus,
@@ -553,7 +279,7 @@ func (psdc *SDC) ConvertToDeliveryDocumentByRangeSpecificationKey() *DeliveryDoc
 	return &res
 }
 
-func (psdc *SDC) ConvertToDeliveryDocumentByRangeSpecification(rows *sql.Rows) ([]*DeliveryDocumentHeader, error) {
+func (psdc *SDC) ConvertToDeliveryDocument(rows *sql.Rows) ([]*DeliveryDocumentHeader, error) {
 	defer rows.Close()
 	res := make([]*DeliveryDocumentHeader, 0)
 
@@ -597,14 +323,14 @@ func (psdc *SDC) ConvertToDeliveryDocumentByRangeSpecification(rows *sql.Rows) (
 	return res, nil
 }
 
-func (psdc *SDC) ConvertToDeliveryDocumentByReferenceDocumentKey() *DeliveryDocumentHeaderKey {
+func (psdc *SDC) ConvertToDeliveryDocumentInIndividualProcessKey() *DeliveryDocumentHeaderKey {
 	pm := &requests.DeliveryDocumentHeaderKey{
-		HeaderCompleteDeliveryIsDefined: getBoolPtr(true),
+		HeaderCompleteDeliveryIsDefined: true,
 		HeaderDeliveryStatus:            "CL",
 		HeaderBillingStatus:             "CL",
-		HeaderBillingBlockStatus:        getBoolPtr(false),
-		IsCancelled:                     getBoolPtr(false),
-		IsMarkedForDeletion:             getBoolPtr(false),
+		HeaderBillingBlockStatus:        false,
+		IsCancelled:                     false,
+		IsMarkedForDeletion:             false,
 	}
 
 	data := pm
@@ -621,7 +347,7 @@ func (psdc *SDC) ConvertToDeliveryDocumentByReferenceDocumentKey() *DeliveryDocu
 	return &res
 }
 
-func (psdc *SDC) ConvertToDeliveryDocumentByReferenceDocument(rows *sql.Rows) ([]*DeliveryDocumentHeader, error) {
+func (psdc *SDC) ConvertToDeliveryDocumentInIndividualProcess(rows *sql.Rows) ([]*DeliveryDocumentHeader, error) {
 	defer rows.Close()
 	res := make([]*DeliveryDocumentHeader, 0)
 
@@ -656,6 +382,80 @@ func (psdc *SDC) ConvertToDeliveryDocumentByReferenceDocument(rows *sql.Rows) ([
 	}
 	if i == 0 {
 		return nil, fmt.Errorf("'data_platform_delivery_document_data'テーブルに対象のレコードが存在しません。")
+	}
+
+	return res, nil
+}
+
+func (psdc *SDC) ConvertToDeliveryDocumentItemKey() *DeliveryDocumentItemKey {
+	pm := &requests.DeliveryDocumentItemKey{
+		ItemCompleteDeliveryIsDefined: true,
+		// ItemDeliveryStatus:            "CL",
+		ItemBillingStatus:      "CL",
+		ItemBillingBlockStatus: false,
+		IsCancelled:            false,
+		IsMarkedForDeletion:    false,
+	}
+
+	data := pm
+	res := DeliveryDocumentItemKey{
+		DeliveryDocument:              data.DeliveryDocument,
+		ConfirmedDeliveryDate:         data.ConfirmedDeliveryDate,
+		ConfirmedDeliveryDateFrom:     data.ConfirmedDeliveryDateFrom,
+		ConfirmedDeliveryDateTo:       data.ConfirmedDeliveryDateTo,
+		ActualGoodsIssueDate:          data.ActualGoodsIssueDate,
+		ActualGoodsIssueDateFrom:      data.ActualGoodsIssueDateFrom,
+		ActualGoodsIssueDateTo:        data.ActualGoodsIssueDateTo,
+		ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
+		// ItemDeliveryStatus:            data.ItemDeliveryStatus,
+		ItemBillingStatus:      data.ItemBillingStatus,
+		ItemBillingBlockStatus: data.ItemBillingBlockStatus,
+		IsCancelled:            data.IsCancelled,
+		IsMarkedForDeletion:    data.IsMarkedForDeletion,
+	}
+
+	return &res
+}
+
+func (psdc *SDC) ConvertToDeliveryDocumentItem(rows *sql.Rows) ([]*DeliveryDocumentItem, error) {
+	defer rows.Close()
+	res := make([]*DeliveryDocumentItem, 0)
+
+	i := 0
+	for rows.Next() {
+		i++
+		pm := &requests.DeliveryDocumentItem{}
+
+		err := rows.Scan(
+			&pm.DeliveryDocument,
+			&pm.DeliveryDocumentItem,
+			&pm.ConfirmedDeliveryDate,
+			&pm.ActualGoodsIssueDate,
+			&pm.ItemCompleteDeliveryIsDefined,
+			&pm.ItemBillingStatus,
+			&pm.ItemBillingBlockStatus,
+			&pm.IsCancelled,
+			&pm.IsMarkedForDeletion,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		data := pm
+		res = append(res, &DeliveryDocumentItem{
+			DeliveryDocument:              data.DeliveryDocument,
+			DeliveryDocumentItem:          data.DeliveryDocumentItem,
+			ConfirmedDeliveryDate:         data.ConfirmedDeliveryDate,
+			ActualGoodsIssueDate:          data.ActualGoodsIssueDate,
+			ItemCompleteDeliveryIsDefined: data.ItemCompleteDeliveryIsDefined,
+			ItemBillingStatus:             data.ItemBillingStatus,
+			ItemBillingBlockStatus:        data.ItemBillingBlockStatus,
+			IsCancelled:                   data.IsCancelled,
+			IsMarkedForDeletion:           data.IsMarkedForDeletion,
+		})
+	}
+	if i == 0 {
+		return nil, fmt.Errorf("'data_platform_delivery_document_item_data'テーブルに対象のレコードが存在しません。")
 	}
 
 	return res, nil

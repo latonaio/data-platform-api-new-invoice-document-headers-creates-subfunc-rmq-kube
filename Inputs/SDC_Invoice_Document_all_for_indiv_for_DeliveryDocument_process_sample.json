@@ -5,42 +5,54 @@
 	"filepath": "/var/lib/aion/Data/rededge_sdc/abcdef.json",
 	"api_status_code": 200,
 	"runtime_session_id": "boi9ar543dg91ipdnspi099u231280ab0v8af0ew",
-	"business_partner": null,
+	"business_partner": 101,
 	"service_label": "INVOICE_DOCUMENT",
 	"api_type": "creates",
 	"InputParameters": {
 		"InvoiceDocumentDate": "2023-02-15",
-		"BillFromParty": [201, 201],
+		"BillFromParty": [
+			null,
+			null
+		],
 		"BillFromPartyTo": null,
 		"BillFromPartyFrom": null,
-		"BillToParty": [101, 101],
+		"BillToParty": [
+			null,
+			null
+		],
 		"BillToPartyTo": null,
 		"BillToPartyFrom": null,
-		"ConfirmedDeliveryDate": ["2020-12-31", "2024-12-31"],
-		"ConfirmedDeliveryDateTo": "",
-		"ConfirmedDeliveryDateFrom": "",
-		"ActualGoodsIssueDate": ["2020-12-31", "2024-12-31"],
-		"ActualGoodsIssueDateTo": "",
-		"ActualGoodsIssueDateFrom": "",
-		"ReferenceDocument": 1
+		"ConfirmedDeliveryDate": [
+			"",
+			""
+		],
+		"ConfirmedDeliveryDateTo": "2023-02-11",
+		"ConfirmedDeliveryDateFrom": "2023-02-10",
+		"ActualGoodsIssueDate": [
+			"",
+			""
+		],
+		"ActualGoodsIssueDateTo": "2023-01-20",
+		"ActualGoodsIssueDateFrom": "2023-01-10",
+		"ReferenceDocument": 80000009
 	},
 	"InvoiceDocument": {
-		"InvoiceDocument": 110,
+		"InvoiceDocument": 90000020,
 		"CreationDate": "",
 		"CreationTime": "",
 		"LastChangeDate": "",
 		"LastChangeTime": "",
-		"SupplyChainRelationshipID": 100000000,
-		"SupplyChainRelationshipBillingID": 120000000,
-		"SupplyChainRelationshipPaymentID": 130000000,
-		"BillToParty": 301,
-		"BillFromParty": 401,
+		"SupplyChainRelationshipID": null,
+		"SupplyChainRelationshipBillingID": null,
+		"SupplyChainRelationshipPaymentID": null,
+		"BillToParty": null,
+		"BillFromParty": null,
 		"BillToCountry": "",
 		"BillFromCountry": "",
-		"Payer": 501,
-		"Payee": 601,
+		"Payer": null,
+		"Payee": null,
 		"InvoiceDocumentDate": "",
-		"InvoiceDocumentTime": "",
+		"InvoiceDocumentTime": "12:00:00",
 		"InvoicePeriodStartDate": "",
 		"InvoicePeriodEndDate": "",
 		"AccountingPostingDate": "",
@@ -57,38 +69,13 @@
 		"PaymentDueDate": "",
 		"NetPaymentDays": null,
 		"PaymentMethod": "",
-		"ExternalReferenceDocument": "123456789",
-		"DocumentHeaderText": "Test",
+		"ExternalReferenceDocument": "",
+		"DocumentHeaderText": "",
 		"HeaderPaymentBlockStatus": null,
 		"HeaderPaymentRequisitionIsCreated": null,
 		"InvoiceDocumentIsCancelled": null,
 		"CancelledInvoiceDocument": null,
-		"HeaderDoc": [
-			{
-				"DocType": "",
-				"DocVersionID": null,
-				"DocID": "",
-				"FileExtension": "",
-				"FileName": "",
-				"FilePath": "",
-				"DocIssuerBusinessPartner": null
-			}
-		],
-		"Address": [
-			{
-			"AddressID": null,
-			"PostalCode": "",
-			"LocalRegion": "",
-			"Country": "",
-			"District": "",
-			"StreetName": "",
-			"CityName": "",
-			"Building": "",
-			"Floor": null,
-			"Room": null
-			}
-		],
-		"InvoiceDocumentItem": [
+		"Item": [
 			{
 				"InvoiceDocumentItem": 1,
 				"InvoiceDocumentItemCategory": "",
@@ -98,7 +85,7 @@
 				"InvoiceDocumentItemText": "",
 				"InvoiceDocumentItemTextByBuyer": "",
 				"InvoiceDocumentItemTextBySeller": "",
-				"Product": "A3750",
+				"Product": "",
 				"ProductGroup": "",
 				"ProductStandardID": "",
 				"CreationDate": "",
@@ -106,13 +93,13 @@
 				"LastChangeDate": "",
 				"LastChangeTime": "",
 				"ItemBillingIsConfirmed": null,
-				"Buyer": 101,
-				"Seller": 201,
-				"DeliverToParty": 101,
-				"DeliverFromParty": 201,
-				"DeliverToPlant": "AB01",
+				"Buyer": null,
+				"Seller": null,
+				"DeliverToParty": null,
+				"DeliverFromParty": null,
+				"DeliverToPlant": "",
 				"DeliverToPlantStorageLocation": "",
-				"DeliverFromPlant": "TE01",
+				"DeliverFromPlant": "",
 				"DeliverFromPlantStorageLocation": "",
 				"ProductionPlantBusinessPartner": null,
 				"ProductionPlant": "",
@@ -152,8 +139,8 @@
 				"DeliveryDocumentItem": null,
 				"OriginDocument": null,
 				"OriginDocumentItem": null,
-				"ReferenceDocument": 20000001,
-				"ReferenceDocumentItem": 1,
+				"ReferenceDocument": null,
+				"ReferenceDocumentItem": null,
 				"ExternalReferenceDocument": "",
 				"ExternalReferenceDocumentItem": "",
 				"TaxCode": "",
@@ -162,39 +149,54 @@
 				"CountryOfOriginLanguage": "",
 				"ItemPaymentRequisitionIsCreated": null,
 				"ItemPaymentBlockStatus": null,
-				"ItemPricingElement": [{
-					"PricingProcedureCounter": null,
-					"ConditionRecord": null,
-					"ConditionSequentialNumber": null,
-					"ConditionType": "",
-					"PricingDate": "",
-					"ConditionRateValue": null,
-					"ConditionCurrency": "",
-					"ConditionQuantity": null,
-					"ConditionQuantityUnit": "",
-					"TaxCode": "",
-					"ConditionAmount": null,
-					"TransactionCurrency": "",
-					"ConditionIsManuallyChanged": null
-				}]
+				"ItemPricingElement": [
+					{
+						"PricingProcedureCounter": null,
+						"ConditionRecord": null,
+						"ConditionSequentialNumber": null,
+						"ConditionType": "",
+						"PricingDate": "",
+						"ConditionRateValue": null,
+						"ConditionCurrency": "",
+						"ConditionQuantity": null,
+						"ConditionQuantityUnit": "",
+						"TaxCode": "",
+						"ConditionAmount": null,
+						"TransactionCurrency": "",
+						"ConditionIsManuallyChanged": null
+					}
+				]
+			}
+		],
+		"HeaderDoc": [
+			{
+				"DocType": "",
+				"DocVersionID": null,
+				"DocID": "",
+				"FileExtension": "",
+				"FileName": "",
+				"FilePath": "",
+				"DocIssuerBusinessPartner": null
+			}
+		],
+		"Address": [
+			{
+				"AddressID": null,
+				"PostalCode": "",
+				"LocalRegion": "",
+				"Country": "",
+				"District": "",
+				"StreetName": "",
+				"CityName": "",
+				"Building": "",
+				"Floor": null,
+				"Room": null
 			}
 		],
 		"Partner": [
 			{
-				"PartnerFunction": "BUYER",
-				"BusinessPartner": 101,
-				"BusinessPartnerFullName": "",
-				"BusinessPartnerName": "",
-				"Organization": "",
-				"Country": "",
-				"Language": "",
-				"Currency": "",
-				"ExternalDocumentID": "",
-				"AddressID": null
-			},
-			{
-				"PartnerFunction": "SELLER",
-				"BusinessPartner": 201,
+				"PartnerFunction": "",
+				"BusinessPartner": null,
 				"BusinessPartnerFullName": "",
 				"BusinessPartnerName": "",
 				"Organization": "",
@@ -207,7 +209,8 @@
 		]
 	},
 	"api_schema": "DPFMInvoiceDocumentCreates",
-	"accepter": ["All"],
-	"invoice_document_id": null,
+	"accepter": [
+		"All"
+	],
 	"deleted": false
 }
